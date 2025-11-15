@@ -1,0 +1,33 @@
+{
+  "name": "telegram-stadium-booking-bot",
+  "version": "1.0.0",
+  "description": "Fully functional Telegram booking bot for football stadium management",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js",
+    "pm2:start": "pm2 start ecosystem.config.js",
+    "pm2:stop": "pm2 stop telegram-stadium-bot",
+    "pm2:restart": "pm2 restart telegram-stadium-bot",
+    "pm2:logs": "pm2 logs telegram-stadium-bot",
+    "pm2:status": "pm2 status"
+  },
+  "keywords": [
+    "telegram",
+    "bot",
+    "booking",
+    "stadium"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "dotenv": "^16.3.1",
+    "mongodb": "^7.0.0",
+    "mongoose": "^8.0.3",
+    "node-cron": "^3.0.3",
+    "telegraf": "^4.15.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  }
+}
