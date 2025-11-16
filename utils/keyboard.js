@@ -133,10 +133,20 @@ function createBackKeyboard() {
   ]);
 }
 
+/**
+ * Create reply keyboard for user (always visible)
+ */
+function createUserReplyKeyboard() {
+  return Markup.keyboard([
+    ['📅 Hafta jadvali', '❌ Bronni bekor qilish']
+  ]).resize().persistent();
+}
+
 module.exports = {
   createMainKeyboard,
   createTimeSlotKeyboard,
   createConfirmationKeyboard,
-  createBackKeyboard
+  createBackKeyboard,
+  createUserReplyKeyboard
 };
 

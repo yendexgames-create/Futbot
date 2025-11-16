@@ -3,15 +3,25 @@ const { getWeekDays, formatDate, formatDateShort, isPastDate } = require('./time
 const Booking = require('../models/Booking');
 
 /**
- * Create admin main menu keyboard
+ * Create admin main menu keyboard (Inline)
  */
 function createAdminMainKeyboard() {
   return Markup.inlineKeyboard([
-    [Markup.button.callback('➕ Bron qilish', 'admin_book')],
+    [Markup.button.callback('📝 Stadioni yozdirish', 'admin_book')],
     [Markup.button.callback('📊 Joylarni ko\'rish', 'admin_view_schedule')],
     [Markup.button.callback('❌ Bronlarni bekor qilish', 'admin_cancel_booking')],
     [Markup.button.callback('💰 Jarima belgilash', 'admin_penalty')]
   ]);
+}
+
+/**
+ * Create admin reply keyboard (always visible)
+ */
+function createAdminReplyKeyboard() {
+  return Markup.keyboard([
+    ['📝 Stadioni yozdirish', '📊 Joylarni ko\'rish'],
+    ['❌ Bronlarni bekor qilish', '💰 Jarima belgilash']
+  ]).resize().persistent();
 }
 
 /**
@@ -46,12 +56,8 @@ function createAdminDateKeyboard(prefix = 'admin_date_') {
  * Create time slot keyboard for admin booking
  */
 function createAdminTimeKeyboard(date) {
-  const timeSlots = [
-    { start: 20, end: 21, label: '20:00–21:00' },
-    { start: 21, end: 22, label: '21:00–22:00' },
-    { start: 22, end: 23, label: '22:00–23:00' },
-    { start: 23, end: 24, label: '23:00–24:00' }
-  ];
+  const { getTimeSlots } = require('./time');
+  const timeSlots = getTimeSlots();
   
   const buttons = timeSlots.map(slot => [
     Markup.button.callback(
@@ -69,6 +75,7 @@ function createAdminTimeKeyboard(date) {
  * Get schedule for a specific day
  */
 async function getDaySchedule(date) {
+  const { getTimeSlots } = require('./time');
   const dateStart = new Date(date);
   dateStart.setHours(0, 0, 0, 0);
   const dateEnd = new Date(date);
@@ -80,12 +87,7 @@ async function getDaySchedule(date) {
   });
   
   const bookedHours = new Set(bookings.map(b => b.hourStart));
-  const timeSlots = [
-    { start: 20, end: 21, label: '20:00–21:00' },
-    { start: 21, end: 22, label: '21:00–22:00' },
-    { start: 22, end: 23, label: '22:00–23:00' },
-    { start: 23, end: 24, label: '23:00–24:00' }
-  ];
+  const timeSlots = getTimeSlots();
   
   let schedule = '';
   for (const slot of timeSlots) {
@@ -117,11 +119,37 @@ async function getWeekSchedule(weekStart = new Date()) {
   return schedule;
 }
 
+/**
+ * Get schedule for all days in week (excluding past days)
+ */
+async function getWeekScheduleExcludingPast(weekStart = new Date()) {
+  const { isPastDate } = require('./time');
+  const weekDays = getWeekDays(weekStart);
+  let schedule = '';
+  
+  for (const day of weekDays) {
+    // Skip past days
+    if (isPastDate(day)) {
+      continue;
+    }
+    
+    const dayNames = ['Yakshanba', 'Dushanba', 'Seshanba', 'Chorshanba', 'Payshanba', 'Juma', 'Shanba'];
+    const dayName = dayNames[day.getDay()];
+    const daySchedule = await getDaySchedule(day);
+    
+    schedule += `\n📅 <b>${dayName} (${formatDate(day)})</b>\n${daySchedule}\n`;
+  }
+  
+  return schedule;
+}
+
 module.exports = {
   createAdminMainKeyboard,
+  createAdminReplyKeyboard,
   createAdminDateKeyboard,
   createAdminTimeKeyboard,
   getDaySchedule,
-  getWeekSchedule
+  getWeekSchedule,
+  getWeekScheduleExcludingPast
 };
 

@@ -108,14 +108,15 @@ function getDateAtMidnight(date) {
 }
 
 /**
- * Get available time slots (20-21, 21-22, 22-23, 23-24)
+ * Get available time slots (19-20, 20-21, 21-22, 22-23, 23-00)
  */
 function getTimeSlots() {
   return [
+    { start: 19, end: 20, label: '19:00–20:00' },
     { start: 20, end: 21, label: '20:00–21:00' },
     { start: 21, end: 22, label: '21:00–22:00' },
     { start: 22, end: 23, label: '22:00–23:00' },
-    { start: 23, end: 24, label: '23:00–24:00' }
+    { start: 23, end: 0, label: '23:00–00:00' }
   ];
 }
 

@@ -13,12 +13,12 @@ const bookingSchema = new mongoose.Schema({
   hourStart: {
     type: Number,
     required: true,
-    enum: [20, 21, 22, 23]
+    enum: [19, 20, 21, 22, 23]
   },
   hourEnd: {
     type: Number,
     required: true,
-    enum: [21, 22, 23, 24]
+    enum: [20, 21, 22, 23, 0]
   },
   status: {
     type: String,
