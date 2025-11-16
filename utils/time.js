@@ -68,13 +68,25 @@ function formatWeekRange(weekStart, weekEnd) {
 
 /**
  * Check if date is in the past
+ * Compares dates by year, month, and day only (ignoring time)
  */
 function isPastDate(date) {
   const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const todayYear = today.getFullYear();
+  const todayMonth = today.getMonth();
+  const todayDay = today.getDate();
+  
   const checkDate = new Date(date);
-  checkDate.setHours(0, 0, 0, 0);
-  return checkDate < today;
+  const checkYear = checkDate.getFullYear();
+  const checkMonth = checkDate.getMonth();
+  const checkDay = checkDate.getDate();
+  
+  // Compare year, month, and day
+  if (checkYear < todayYear) return true;
+  if (checkYear > todayYear) return false;
+  if (checkMonth < todayMonth) return true;
+  if (checkMonth > todayMonth) return false;
+  return checkDay < todayDay;
 }
 
 /**

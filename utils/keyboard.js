@@ -9,11 +9,6 @@ async function createMainKeyboard(currentWeekStart = new Date()) {
   const weekDays = getWeekDays(currentWeekStart);
   const buttons = [];
   
-  // Add admin panel button if user is admin
-  if (process.env.ADMIN_CHAT_ID && this && this.from && this.from.id.toString() === process.env.ADMIN_CHAT_ID) {
-    buttons.push([Markup.button.webApp('👨‍💻 Admin Panel', process.env.ADMIN_PANEL_URL || 'https://your-admin-panel-url.com')]);
-  }
-  
   // Get all bookings for the week
   const weekStart = new Date(weekDays[0]);
   weekStart.setHours(0, 0, 0, 0);

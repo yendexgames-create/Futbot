@@ -1,7 +1,6 @@
 const { Markup } = require('telegraf');
-const { getWeekDays, formatDate, formatDateShort, isPastDate, formatTime } = require('./time');
+const { getWeekDays, formatDate, formatDateShort, isPastDate } = require('./time');
 const Booking = require('../models/Booking');
-const User = require('../models/User');
 
 /**
  * Create admin main menu keyboard
@@ -9,70 +8,36 @@ const User = require('../models/User');
 function createAdminMainKeyboard() {
   return Markup.inlineKeyboard([
     [Markup.button.callback('➕ Bron qilish', 'admin_book')],
-    [Markup.button.callback('📊 Bugungi bronlar', 'admin_today_bookings')],
-    [Markup.button.callback('❌ Bronni bekor qilish', 'admin_cancel_booking')],
-    [Markup.button.callback('� Kelgusi kunlar', 'admin_future_bookings')],
-    [Markup.button.callback('�💰 Jarima belgilash', 'admin_penalty')]
+    [Markup.button.callback('📊 Joylarni ko\'rish', 'admin_view_schedule')],
+    [Markup.button.callback('❌ Bronlarni bekor qilish', 'admin_cancel_booking')],
+    [Markup.button.callback('💰 Jarima belgilash', 'admin_penalty')]
   ]);
 }
 
 /**
  * Create date selection keyboard for admin booking
+ * @param {string} prefix - Callback prefix (default: 'admin_date_', can be 'admin_penalty_date_')
  */
-async function createAdminDateKeyboard() {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  
+function createAdminDateKeyboard(prefix = 'admin_date_') {
+  const weekDays = getWeekDays();
   const buttons = [];
-  const row = [];
   
-  // Get all future bookings
-  const bookings = await Booking.find({
-    date: { $gte: today },
-    status: 'booked'
-  }).sort({ date: 1 });
-  
-  // Group bookings by date
-  const bookingsByDate = {};
-  bookings.forEach(booking => {
-    const dateKey = booking.date.toISOString().split('T')[0];
-    if (!bookingsByDate[dateKey]) {
-      bookingsByDate[dateKey] = [];
-    }
-    bookingsByDate[dateKey].push(booking);
-  });
-  
-  // Create buttons for each date with bookings
-  for (const [dateKey, dateBookings] of Object.entries(bookingsByDate)) {
-    const date = new Date(dateKey);
-    const dayName = formatDateShort(date);
-    const dayLabel = ['Yak', 'Dush', 'Sesh', 'Chor', 'Pay', 'Jum', 'Shan'][date.getDay()];
-    const bookingCount = dateBookings.length;
+  // Create day buttons for next 14 days
+  for (let i = 0; i < 14; i++) {
+    const day = new Date();
+    day.setDate(day.getDate() + i);
+    const dateKey = day.toISOString().split('T')[0];
+    const dayName = formatDateShort(day);
+    const dayNames = ['Yak', 'Dush', 'Sesh', 'Chor', 'Pay', 'Jum', 'Shan'];
+    const dayLabel = dayNames[day.getDay()];
     
-    row.push(Markup.button.callback(
-      `${dayLabel} ${dayName} (${bookingCount})`,
-      `admin_view_date_${dateKey}`
-    ));
-    
-    // Add a new row every 2 buttons
-    if (row.length >= 2) {
-      buttons.push([...row]);
-      row.length = 0;
-    }
+    buttons.push([Markup.button.callback(
+      `${dayLabel} ${dayName}`,
+      `${prefix}${dateKey}`
+    )]);
   }
   
-  // Add remaining buttons
-  if (row.length > 0) {
-    buttons.push([...row]);
-  }
-  
-  // Add navigation buttons
-  buttons.push([
-    Markup.button.callback('📅 Bugungi bronlar', 'admin_today_bookings'),
-    Markup.button.callback('📅 Kelgusi kunlar', 'admin_future_bookings')
-  ]);
-  
-  buttons.push([Markup.button.callback('🔙 Orqaga', 'admin_back')]);
+  buttons.push([Markup.button.callback('🔙 Orqaga', prefix === 'admin_penalty_date_' ? 'admin_penalty' : 'admin_back')]);
   
   return Markup.inlineKeyboard(buttons);
 }

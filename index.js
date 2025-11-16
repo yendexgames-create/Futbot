@@ -67,7 +67,9 @@ bot.on('callback_query', async (ctx) => {
     // Handle day selection
     if (data.startsWith('day_')) {
       const dateStr = data.replace('day_', '');
-      const selectedDate = new Date(dateStr);
+      // Parse date string (YYYY-MM-DD) as local date, not UTC
+      const [year, month, day] = dateStr.split('-').map(Number);
+      const selectedDate = new Date(year, month - 1, day);
       
       if (isPastDate(selectedDate)) {
         await ctx.answerCbQuery('Bu kun allaqachon o\'tib ketgan.');
@@ -96,7 +98,9 @@ bot.on('callback_query', async (ctx) => {
       const hourStart = parseInt(parts[1]);
       const hourEnd = parseInt(parts[2]);
       
-      const selectedDate = new Date(dateStr);
+      // Parse date string (YYYY-MM-DD) as local date, not UTC
+      const [year, month, day] = dateStr.split('-').map(Number);
+      const selectedDate = new Date(year, month - 1, day);
       selectedDate.setHours(0, 0, 0, 0);
       
       // Check if slot is still available
@@ -196,7 +200,9 @@ bot.on('callback_query', async (ctx) => {
     // Handle next week navigation
     else if (data.startsWith('next_week_')) {
       const dateStr = data.replace('next_week_', '');
-      const nextWeekStart = new Date(dateStr);
+      // Parse date string (YYYY-MM-DD) as local date, not UTC
+      const [year, month, day] = dateStr.split('-').map(Number);
+      const nextWeekStart = new Date(year, month - 1, day);
       const keyboard = await createMainKeyboard(nextWeekStart);
       
       await ctx.answerCbQuery();
@@ -336,13 +342,16 @@ bot.on('callback_query', async (ctx) => {
       await ctx.answerCbQuery('Bron bekor qilindi.');
       
       const timeLabel = `${String(booking.hourStart).padStart(2, '0')}:00–${String(booking.hourEnd).padStart(2, '0')}:00`;
+      const currentWeekStart = getWeekStart();
+      const keyboard = await createMainKeyboard(currentWeekStart);
+      
       await ctx.editMessageText(
-        `✅ Bron muvaffaqiyatli bekor qilindi!\n\n` +
+        `✅ <b>Bron muvaffaqiyatli bekor qilindi!</b>\n\n` +
         `📅 Sana: ${formatDate(bookingDate)}\n` +
-        `⏰ Vaqt: ${timeLabel}`,
-        Markup.inlineKeyboard([
-          [Markup.button.callback('🔙 Menyuga qaytish', 'back_to_week')]
-        ])
+        `⏰ Vaqt: ${timeLabel}\n\n` +
+        `━━━━━━━━━━━━━━━━━━━━\n\n` +
+        `Stadionni bron qilish uchun kunni tanlang:`,
+        keyboard
       );
     }
     
@@ -394,21 +403,19 @@ bot.on('callback_query', async (ctx) => {
       const { notifyAdminPaymentReady } = require('./adminBot');
       await notifyAdminPaymentReady(booking, user);
       
+      const currentWeekStart = getWeekStart();
+      const keyboard = await createMainKeyboard(currentWeekStart);
+      
       await ctx.reply(
         `💰 <b>Jarima to'lovi</b>\n\n` +
         `Jarimani to'lash uchun quyidagi usullardan birini tanlang:\n\n` +
         `1️⃣ <b>Adminning Telegram lichkasiga to'lov skrinshotini yuboring</b>${adminContact}\n\n` +
         `2️⃣ <b>Admin bilan kelishib oling</b> - Admin bilan to'g'ridan-to'g'ri bog'laning va to'lov haqida kelishib oling.\n\n` +
         `⚠️ <b>ESLATMA:</b> To'lov skrinshotini adminning Telegram lichkasiga yuborish yoki admin bilan kelishib olish kerak. To'lov qilgandan so'ng, admin to'lovni tasdiqlaydi va sizga xabar keladi.\n\n` +
-        `✅ Admin botga to'lov haqida xabar yuborildi.`,
-        {
-          reply_markup: {
-            inline_keyboard: [[
-              Markup.button.callback('🔙 Asosiy joyga qaytish', 'back_to_week')
-            ]]
-          },
-          parse_mode: 'HTML'
-        }
+        `✅ Admin botga to'lov haqida xabar yuborildi.\n\n` +
+        `━━━━━━━━━━━━━━━━━━━━\n\n` +
+        `Stadionni bron qilish uchun kunni tanlang:`,
+        keyboard
       );
     }
     
@@ -559,18 +566,19 @@ bot.on('text', async (ctx) => {
     const scheduleText = await generateDailySchedule(bookingDate);
     await postDailyScheduleToAdmin(scheduleText, bookingDate);
     await postDailyScheduleToChannel(scheduleText, bookingDate);
+    const currentWeekStart = getWeekStart();
+    const keyboard = await createMainKeyboard(currentWeekStart);
+    
     await ctx.reply(
-      `✅ Bekor qilish qayta ishlandi.\n\n` +
+      `✅ <b>Bekor qilish qayta ishlandi.</b>\n\n` +
       `⚠️ Jarima: 100,000 so'm\n` +
       `📅 Sana: ${formatDate(bookingDate)}\n` +
       `⏰ Vaqt: ${timeLabel}\n\n` +
-      `Sizning bekor qilish sababingiz va to'lov va'dangiz adminga yuborildi.`,
-      Markup.keyboard([]).resize() // Remove keyboard
+      `Sizning bekor qilish sababingiz va to'lov va'dangiz adminga yuborildi.\n\n` +
+      `━━━━━━━━━━━━━━━━━━━━\n\n` +
+      `Stadionni bron qilish uchun kunni tanlang:`,
+      keyboard
     );
-    
-    const currentWeekStart = getWeekStart();
-    const keyboard = await createMainKeyboard(currentWeekStart);
-    await ctx.reply('Stadionni bron qilish uchun kunni tanlang:', keyboard);
     
     userStates.delete(userId);
   }
