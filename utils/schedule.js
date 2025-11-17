@@ -10,9 +10,23 @@ async function generateDailySchedule(date) {
   const dateEnd = new Date(date);
   dateEnd.setHours(23, 59, 59, 999);
   
-  const bookings = await Booking.find({
-    date: { $gte: dateStart, $lte: dateEnd },
-    status: 'booked'
+  // Get target date components for comparison
+  const targetYear = date.getFullYear();
+  const targetMonth = date.getMonth();
+  const targetDay = date.getDate();
+  
+  // Find all bookings and filter by local date (not UTC)
+  const allBookings = await Booking.find({
+    status: 'booked',
+    date: { $gte: dateStart, $lte: dateEnd }
+  });
+  
+  // Filter bookings by local date (handle timezone issues)
+  const bookings = allBookings.filter(booking => {
+    const bookingDate = new Date(booking.date);
+    return bookingDate.getFullYear() === targetYear &&
+           bookingDate.getMonth() === targetMonth &&
+           bookingDate.getDate() === targetDay;
   });
   
   const bookedHours = new Set(bookings.map(b => b.hourStart));

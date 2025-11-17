@@ -7,7 +7,7 @@ const Booking = require('../models/Booking');
  */
 function createAdminMainKeyboard() {
   return Markup.inlineKeyboard([
-    [Markup.button.callback('📝 Stadioni yozdirish', 'admin_book')],
+    [Markup.button.callback('📝📝📝 STADIONI YOZDIRISH 📝📝📝', 'admin_book')],
     [Markup.button.callback('📊 Joylarni ko\'rish', 'admin_view_schedule')],
     [Markup.button.callback('❌ Bronlarni bekor qilish', 'admin_cancel_booking')],
     [Markup.button.callback('💰 Jarima belgilash', 'admin_penalty')]
@@ -19,8 +19,9 @@ function createAdminMainKeyboard() {
  */
 function createAdminReplyKeyboard() {
   return Markup.keyboard([
-    ['📝 Stadioni yozdirish', '📊 Joylarni ko\'rish'],
-    ['❌ Bronlarni bekor qilish', '💰 Jarima belgilash']
+    ['📝📝📝 STADIONI YOZDIRISH 📝📝📝'],
+    ['📊 Joylarni ko\'rish', '❌ Bronlarni bekor qilish'],
+    ['💰 Jarima belgilash']
   ]).resize().persistent();
 }
 
@@ -55,8 +56,6 @@ function createAdminDateKeyboard(prefix = 'admin_date_') {
 /**
  * Create time slot keyboard for admin booking
  */
-
-// awdawdawda
 function createAdminTimeKeyboard(date) {
   const { getTimeSlots } = require('./time');
   const timeSlots = getTimeSlots();
@@ -78,14 +77,30 @@ function createAdminTimeKeyboard(date) {
  */
 async function getDaySchedule(date) {
   const { getTimeSlots } = require('./time');
+  
+  // Create date range using local time (not UTC)
   const dateStart = new Date(date);
   dateStart.setHours(0, 0, 0, 0);
   const dateEnd = new Date(date);
   dateEnd.setHours(23, 59, 59, 999);
   
-  const bookings = await Booking.find({
-    date: { $gte: dateStart, $lte: dateEnd },
-    status: 'booked'
+  // Get target date components for comparison
+  const targetYear = date.getFullYear();
+  const targetMonth = date.getMonth();
+  const targetDay = date.getDate();
+  
+  // Find all bookings and filter by local date (not UTC)
+  const allBookings = await Booking.find({
+    status: 'booked',
+    date: { $gte: dateStart, $lte: dateEnd }
+  });
+  
+  // Filter bookings by local date (handle timezone issues)
+  const bookings = allBookings.filter(booking => {
+    const bookingDate = new Date(booking.date);
+    return bookingDate.getFullYear() === targetYear &&
+           bookingDate.getMonth() === targetMonth &&
+           bookingDate.getDate() === targetDay;
   });
   
   const bookedHours = new Set(bookings.map(b => b.hourStart));

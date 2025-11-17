@@ -22,8 +22,16 @@ async function createMainKeyboard(currentWeekStart = new Date()) {
   
   // Create a map of booked slots per day
   const bookedSlots = {};
+  const timeSlotsCount = getTimeSlots().length; // 5 ta slot (19, 20, 21, 22, 23)
+  
   bookings.forEach(booking => {
-    const dateKey = booking.date.toISOString().split('T')[0];
+    // Use local date for key (not UTC)
+    const bookingDate = new Date(booking.date);
+    const year = bookingDate.getFullYear();
+    const month = String(bookingDate.getMonth() + 1).padStart(2, '0');
+    const day = String(bookingDate.getDate()).padStart(2, '0');
+    const dateKey = `${year}-${month}-${day}`;
+    
     if (!bookedSlots[dateKey]) {
       bookedSlots[dateKey] = new Set();
     }
@@ -33,9 +41,14 @@ async function createMainKeyboard(currentWeekStart = new Date()) {
   // Create day buttons
   for (let i = 0; i < weekDays.length; i++) {
     const day = weekDays[i];
-    const dateKey = day.toISOString().split('T')[0];
+    // Use local date for key (not UTC)
+    const year = day.getFullYear();
+    const month = String(day.getMonth() + 1).padStart(2, '0');
+    const dayNum = String(day.getDate()).padStart(2, '0');
+    const dateKey = `${year}-${month}-${dayNum}`;
+    
     const isPast = isPastDate(day);
-    const hasAvailableSlots = !isPast && (!bookedSlots[dateKey] || bookedSlots[dateKey].size < 4);
+    const hasAvailableSlots = !isPast && (!bookedSlots[dateKey] || bookedSlots[dateKey].size < timeSlotsCount);
     
     const dayName = formatDateShort(day);
     const dayLabel = getDayLabel(day);
@@ -99,7 +112,11 @@ async function createTimeSlotKeyboard(date) {
   // Create time slot buttons
   for (const slot of timeSlots) {
     const isBooked = bookedHours.has(slot.start);
-    const dateKey = date.toISOString().split('T')[0];
+    // Use local date for key (not UTC)
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const dayNum = String(date.getDate()).padStart(2, '0');
+    const dateKey = `${year}-${month}-${dayNum}`;
     
     if (isBooked) {
       buttons.push([Markup.button.callback(`❌ ${slot.label} (Band)`, `slot_booked_${dateKey}_${slot.start}`)]);

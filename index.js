@@ -504,109 +504,27 @@ bot.on('contact', async (ctx) => {
 // Photo handler disabled - users now send screenshots to admin's personal Telegram
 // No photo processing needed
 
-// Handle text messages (for late cancellation reason)
+// Handle text messages (unified handler for Reply Keyboard and late cancellation)
 bot.on('text', async (ctx) => {
   const userId = ctx.from.id;
   const text = ctx.message.text;
   const state = userStates.get(userId);
   
-  if (state && state.type === 'late_cancellation') {
-    const booking = await Booking.findById(state.bookingId);
-    
-    if (!booking || booking.userId !== userId) {
-      await ctx.reply('❌ Bron topilmadi.');
-      userStates.delete(userId);
-      return;
-    }
-    
-    // Extract reason and payment promise from text
-    const lines = text.split('\n');
-    const reason = lines[0] || text;
-    const paymentPromise = lines.slice(1).join('\n') || 'Ko\'rsatilmagan';
-    
-    // Update booking
-    booking.status = 'cancelled';
-    booking.cancelTime = new Date();
-    booking.cancelReason = reason;
-    booking.penaltyAmount = 100000;
-    booking.penaltyNotificationSent = true;
-    await booking.save();
-    
-    const user = await User.findOne({ userId });
-    
-    // Notify admin with penalty info
-    await notifyLateCancellationPenalty(booking, user, reason, paymentPromise);
-    
-    // Notify channel
-    const bookingDate = new Date(booking.date);
-    await notifyChannelCancellation(bookingDate, booking.hourStart, booking.hourEnd);
-    
-    // Send penalty notification to user automatically
-    const { Telegraf } = require('telegraf');
-    const mainBot = new Telegraf(process.env.BOT_TOKEN);
-    const timeLabel = `${String(booking.hourStart).padStart(2, '0')}:00–${String(booking.hourEnd).padStart(2, '0')}:00`;
-    const penaltyMessage = `⚠️ <b>JARIMA XABARNOMASI</b>\n\n` +
-      `Sizning ${formatDate(bookingDate)} sanasidagi ${timeLabel} vaqtidagi broningiz bekor qilindi va jarima belgilandi.\n\n` +
-      `💰 <b>Jarima miqdori: 100,000 so'm</b>\n\n` +
-      `Agar naqd tarzda to'lay olmasangiz, quyidagi karta raqamiga to'lov qilishingiz mumkin:\n` +
-      `💳 <b>Karta raqami: ${process.env.PAYMENT_CARD || 'Karta raqami sozlanmagan'}</b>\n\n` +
-      `To'lov qilganingizdan so'ng, to'lov skrinshotini yuboring.`;
-    
-    try {
-      await mainBot.telegram.sendMessage(booking.userId, penaltyMessage, {
-        parse_mode: 'HTML',
-        reply_markup: {
-          inline_keyboard: [[
-            { text: '📸 To\'lov skrinshotini yuborish', callback_data: `penalty_payment_${booking._id}` }
-          ]]
-        }
-      });
-    } catch (error) {
-      console.error('Error sending automatic penalty notification:', error);
-    }
-    
-    // Send daily schedule to admin and channel
-    const { generateDailySchedule } = require('./utils/schedule');
-    const { postDailyScheduleToAdmin } = require('./adminBot');
-    const { postDailyScheduleToChannel } = require('./cron/schedule');
-    const scheduleText = await generateDailySchedule(bookingDate);
-    await postDailyScheduleToAdmin(scheduleText, bookingDate);
-    await postDailyScheduleToChannel(scheduleText, bookingDate);
-    const currentWeekStart = getWeekStart();
-    const keyboard = await createMainKeyboard(currentWeekStart);
-    
-    await ctx.reply(
-      `✅ <b>Bekor qilish qayta ishlandi.</b>\n\n` +
-      `⚠️ Jarima: 100,000 so'm\n` +
-      `📅 Sana: ${formatDate(bookingDate)}\n` +
-      `⏰ Vaqt: ${timeLabel}\n\n` +
-      `Sizning bekor qilish sababingiz va to'lov va'dangiz adminga yuborildi.\n\n` +
-      `━━━━━━━━━━━━━━━━━━━━\n\n` +
-      `Stadionni bron qilish uchun kunni tanlang:`,
-      keyboard
-    );
-    
-    userStates.delete(userId);
-  }
-});
-
-// Handle text messages (for Reply Keyboard)
-bot.on('text', async (ctx) => {
-  const userId = ctx.from.id;
-  const text = ctx.message.text;
-  const state = userStates.get(userId);
-  
-  // Handle Reply Keyboard buttons
+  // Handle Reply Keyboard buttons first
   if (text === '📅 Hafta jadvali') {
     const currentWeekStart = getWeekStart();
     const keyboard = await createMainKeyboard(currentWeekStart);
     await ctx.reply('📅 <b>Hafta jadvali:</b>', keyboard);
+    return;
   } else if (text === '❌ Bronni bekor qilish') {
-    const userId = ctx.from.id;
+    // Get only today and future bookings
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
     const activeBookings = await Booking.find({
       userId,
       status: 'booked',
-      date: { $gte: new Date() }
+      date: { $gte: today }
     }).sort({ date: 1, hourStart: 1 });
     
     if (activeBookings.length === 0) {
@@ -643,7 +561,11 @@ bot.on('text', async (ctx) => {
       ...Markup.inlineKeyboard(buttons),
       parse_mode: 'HTML'
     });
-  } else if (state && state.type === 'late_cancellation') {
+    return;
+  }
+  
+  // Handle late cancellation reason
+  if (state && state.type === 'late_cancellation') {
     // Handle late cancellation reason (existing handler)
     const booking = await Booking.findById(state.bookingId);
     

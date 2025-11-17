@@ -1,6 +1,6 @@
 const { Telegraf, Markup } = require('telegraf');
 const { formatDate, getWeekStart } = require('./utils/time');
-const { createAdminMainKeyboard, createAdminReplyKeyboard, createAdminDateKeyboard, createAdminTimeKeyboard, getWeekSchedule, getWeekScheduleExcludingPast } = require('./utils/adminKeyboard');
+const { createAdminReplyKeyboard, createAdminDateKeyboard, createAdminTimeKeyboard, getWeekSchedule, getWeekScheduleExcludingPast } = require('./utils/adminKeyboard');
 const Booking = require('./models/Booking');
 const User = require('./models/User');
 const { notifyChannelBooking } = require('./cron/schedule');
@@ -38,13 +38,8 @@ function initAdminBot() {
     const welcomeMessage = `👋 <b>Admin panel</b>\n\n` +
       `Quyidagi funksiyalardan foydalaning:`;
     
+    // Faqat Reply Keyboard (asosiy menu)
     await ctx.reply(welcomeMessage, {
-      ...createAdminMainKeyboard(),
-      parse_mode: 'HTML'
-    });
-    
-    // Set reply keyboard (always visible)
-    await ctx.reply('📋 <b>Asosiy menu:</b>', {
       ...createAdminReplyKeyboard(),
       parse_mode: 'HTML'
     });
@@ -65,7 +60,7 @@ function initAdminBot() {
       if (data === 'admin_book') {
         await ctx.answerCbQuery();
         await ctx.editMessageText(
-          '📅 <b>Bron qilish uchun sanani tanlang:</b>',
+          '📅 <b>Stadioni yozdirish uchun sanani tanlang:</b>',
           {
             ...createAdminDateKeyboard(),
             parse_mode: 'HTML'
@@ -200,16 +195,20 @@ function initAdminBot() {
       else if (data === 'admin_cancel_booking') {
         await ctx.answerCbQuery('Bronlar yuklanmoqda...');
         
-        // Get ALL bookings (not just active ones) - barcha yozdirilganlarni ko'rsatish
+        // Get only today and future bookings (o'tib ketgan kunlarni chiqarmaslik)
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
         const bookings = await Booking.find({
-          status: 'booked'
+          status: 'booked',
+          date: { $gte: today }
         }).sort({ date: 1, hourStart: 1 });
         
         if (bookings.length === 0) {
           await ctx.editMessageText(
             '❌ Yozdirilgan bronlar topilmadi.',
             {
-              ...createAdminMainKeyboard(),
+              ...createAdminReplyKeyboard(),
               parse_mode: 'HTML'
             }
           );
@@ -272,10 +271,13 @@ function initAdminBot() {
         const timeLabel = `${String(booking.hourStart).padStart(2, '0')}:00–${String(booking.hourEnd).padStart(2, '0')}:00`;
         await ctx.answerCbQuery('Bron bekor qilindi!');
         
-        // Refresh bookings list
+        // Refresh bookings list - only today and future
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
         const bookings = await Booking.find({
           status: 'booked',
-          date: { $gte: new Date() }
+          date: { $gte: today }
         }).sort({ date: 1, hourStart: 1 });
         
         if (bookings.length === 0) {
@@ -286,7 +288,7 @@ function initAdminBot() {
             `👤 Foydalanuvchi: ${user ? (user.username ? `@${user.username}` : user.firstName || 'Noma\'lum') : 'Noma\'lum'}\n\n` +
             `❌ Faol bronlar qolmadi.`,
             {
-              ...createAdminMainKeyboard(),
+              ...createAdminReplyKeyboard(),
               parse_mode: 'HTML'
             }
           );
@@ -346,7 +348,7 @@ function initAdminBot() {
           await ctx.editMessageText(
             `❌ Bugungi kun uchun band bronlar topilmadi.`,
             {
-              ...createAdminMainKeyboard(),
+              ...createAdminReplyKeyboard(),
               parse_mode: 'HTML'
             }
           );
@@ -457,7 +459,6 @@ function initAdminBot() {
         await ctx.answerCbQuery('Jarima belgilandi!');
         
         // Refresh the list - only today's bookings
-        const now = new Date();
         const today = new Date(now);
         today.setHours(0, 0, 0, 0);
         const tomorrow = new Date(today);
@@ -476,7 +477,7 @@ function initAdminBot() {
             `💰 Jarima: ${booking.penaltyAmount.toLocaleString()} so'm\n\n` +
             `❌ Bugungi kun uchun boshqa band bronlar qolmadi.`,
             {
-              ...createAdminMainKeyboard(),
+              ...createAdminReplyKeyboard(),
               parse_mode: 'HTML'
             }
           );
@@ -547,7 +548,7 @@ function initAdminBot() {
           await ctx.editMessageText(
             '❌ Bugungi kun uchun jarima belgilangan bronlar topilmadi.',
             {
-              ...createAdminMainKeyboard(),
+              ...createAdminReplyKeyboard(),
               parse_mode: 'HTML'
             }
           );
@@ -617,7 +618,7 @@ function initAdminBot() {
             `💰 <b>Jarima:</b> ${booking.penaltyAmount.toLocaleString()} so'm\n\n` +
             `✅ To'lov qabul qilingan va foydalanuvchiga xabar yuborilgan.`,
             {
-              ...createAdminMainKeyboard(),
+              ...createAdminReplyKeyboard(),
               parse_mode: 'HTML'
             }
           );
@@ -774,14 +775,14 @@ function initAdminBot() {
         );
       }
       
-      // Admin back button
+      // Admin back button - faqat Reply Keyboard qaytaradi
       else if (data === 'admin_back') {
         await ctx.answerCbQuery();
-        await ctx.editMessageText(
+        await ctx.reply(
           `👋 <b>Admin panel</b>\n\n` +
           `Quyidagi funksiyalardan foydalaning:`,
           {
-            ...createAdminMainKeyboard(),
+            ...createAdminReplyKeyboard(),
             parse_mode: 'HTML'
           }
         );
@@ -794,15 +795,18 @@ function initAdminBot() {
     }
   });
   
-  // Handle admin text messages (for name/phone input)
+  // Handle admin text messages (unified handler for Reply Keyboard and booking input)
   adminBot.on('text', async (ctx) => {
     const adminChatId = ctx.from.id.toString();
     if (adminChatId !== process.env.ADMIN_CHAT_ID) return;
     
-    const state = adminStates.get(adminChatId);
     const text = ctx.message.text;
     
+    // Check if user is in booking state first
+    const state = adminStates.get(adminChatId);
+    
     if (state && state.type === 'admin_booking') {
+      // Handle booking name/phone input
       const { date, hourStart, hourEnd } = state;
       
       // Check if slot is still available
@@ -850,42 +854,25 @@ function initAdminBot() {
       // Notify channel (pass name as userName, phone will be fetched in notifyChannelBooking)
       await notifyChannelBooking(date, hourStart, hourEnd, adminUserId, name || phone || '');
       
-      const timeLabel = `${String(hourStart).padStart(2, '0')}:00–${String(hourEnd).padStart(2, '0')}:00`;
-      
-      // Create menu with all options always visible
-      const menuKeyboard = Markup.inlineKeyboard([
-        [Markup.button.callback('➕ Bron qilish', 'admin_book')],
-        [Markup.button.callback('📊 Joylarni ko\'rish', 'admin_view_schedule')],
-        [Markup.button.callback('❌ Bronlarni bekor qilish', 'admin_cancel_booking')],
-        [Markup.button.callback('💰 Jarima belgilash', 'admin_penalty')]
-      ]);
+      const timeLabel = `${String(hourStart).padStart(2, '0')}:00–${String(hourEnd === 0 ? '00' : hourEnd).padStart(2, '0')}:00`;
       
       await ctx.reply(
         `✅ <b>Bron muvaffaqiyatli qilindi!</b>\n\n` +
         `📅 Sana: ${formatDate(date)}\n` +
         `⏰ Vaqt: ${timeLabel}\n` +
-        `👤 Ism/Nomer: ${name}${phone ? `\n📞 Telefon: ${phone}` : ''}\n\n` +
-        `━━━━━━━━━━━━━━━━━━━━\n\n` +
-        `📋 <b>Admin panel menu:</b>`,
+        `👤 Ism/Nomer: ${name}${phone ? `\n📞 Telefon: ${phone}` : ''}`,
         {
-          ...menuKeyboard,
+          ...createAdminReplyKeyboard(),
           parse_mode: 'HTML'
         }
       );
       
       adminStates.delete(adminChatId);
+      return;
     }
-  });
-  
-  // Handle admin text messages (for Reply Keyboard)
-  adminBot.on('text', async (ctx) => {
-    const adminChatId = ctx.from.id.toString();
-    if (adminChatId !== process.env.ADMIN_CHAT_ID) return;
-    
-    const text = ctx.message.text;
     
     // Handle Reply Keyboard buttons
-    if (text === '📝 Stadioni yozdirish') {
+    if (text === '📝📝📝 STADIONI YOZDIRISH 📝📝📝' || text === '📝 Stadioni yozdirish') {
       await ctx.reply('📅 <b>Stadioni yozdirish uchun sanani tanlang:</b>', {
         ...createAdminDateKeyboard(),
         parse_mode: 'HTML'
@@ -911,14 +898,18 @@ function initAdminBot() {
         parse_mode: 'HTML'
       });
     } else if (text === '❌ Bronlarni bekor qilish') {
-      // Get ALL bookings
+      // Get only today and future bookings (o'tib ketgan kunlarni chiqarmaslik)
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
       const bookings = await Booking.find({
-        status: 'booked'
+        status: 'booked',
+        date: { $gte: today }
       }).sort({ date: 1, hourStart: 1 });
       
       if (bookings.length === 0) {
         await ctx.reply('❌ Yozdirilgan bronlar topilmadi.', {
-          ...createAdminMainKeyboard(),
+          ...createAdminReplyKeyboard(),
           parse_mode: 'HTML'
         });
         return;
@@ -970,7 +961,7 @@ function initAdminBot() {
       
       if (bookings.length === 0) {
         await ctx.reply(`❌ Bugungi kun uchun band bronlar topilmadi.`, {
-          ...createAdminMainKeyboard(),
+          ...createAdminReplyKeyboard(),
           parse_mode: 'HTML'
         });
         return;
@@ -1013,83 +1004,6 @@ function initAdminBot() {
           parse_mode: 'HTML'
         }
       );
-    } else {
-      // Handle existing text handler for admin booking
-      const state = adminStates.get(adminChatId);
-      
-      if (state && state.type === 'admin_booking') {
-        const { date, hourStart, hourEnd } = state;
-        
-        // Check if slot is still available
-        const existingBooking = await Booking.findOne({
-          date: { $gte: date, $lt: new Date(date.getTime() + 24 * 60 * 60 * 1000) },
-          hourStart,
-          status: 'booked'
-        });
-        
-        if (existingBooking) {
-          await ctx.reply('❌ Bu vaqt allaqachon band qilingan!');
-          adminStates.delete(adminChatId);
-          return;
-        }
-        
-        // Create booking with special userId (negative for admin bookings)
-        const adminUserId = -Math.abs(parseInt(adminChatId));
-        const booking = await Booking.create({
-          userId: adminUserId,
-          date,
-          hourStart,
-          hourEnd,
-          status: 'booked'
-        });
-        
-        // Create or update user with name/phone
-        const phoneMatch = text.match(/\+?\d{9,13}/);
-        const phone = phoneMatch ? phoneMatch[0] : null;
-        const name = phone ? text.replace(phone, '').trim() : text;
-        
-        await User.findOneAndUpdate(
-          { userId: adminUserId },
-          {
-            userId: adminUserId,
-            username: null,
-            phone: phone || name,
-            firstName: name,
-            lastName: null
-          },
-          { upsert: true, new: true }
-        );
-        
-        const user = await User.findOne({ userId: adminUserId });
-        
-        // Notify channel (pass name as userName, phone will be fetched in notifyChannelBooking)
-        await notifyChannelBooking(date, hourStart, hourEnd, adminUserId, name || phone || '');
-        
-        const timeLabel = `${String(hourStart).padStart(2, '0')}:00–${String(hourEnd === 0 ? '00' : hourEnd).padStart(2, '0')}:00`;
-        
-        // Create menu with all options always visible
-        const menuKeyboard = Markup.inlineKeyboard([
-          [Markup.button.callback('📝 Stadioni yozdirish', 'admin_book')],
-          [Markup.button.callback('📊 Joylarni ko\'rish', 'admin_view_schedule')],
-          [Markup.button.callback('❌ Bronlarni bekor qilish', 'admin_cancel_booking')],
-          [Markup.button.callback('💰 Jarima belgilash', 'admin_penalty')]
-        ]);
-        
-        await ctx.reply(
-          `✅ <b>Bron muvaffaqiyatli qilindi!</b>\n\n` +
-          `📅 Sana: ${formatDate(date)}\n` +
-          `⏰ Vaqt: ${timeLabel}\n` +
-          `👤 Ism/Nomer: ${name}${phone ? `\n📞 Telefon: ${phone}` : ''}\n\n` +
-          `━━━━━━━━━━━━━━━━━━━━\n\n` +
-          `📋 <b>Admin panel menu:</b>`,
-          {
-            ...menuKeyboard,
-            parse_mode: 'HTML'
-          }
-        );
-        
-        adminStates.delete(adminChatId);
-      }
     }
   });
   
