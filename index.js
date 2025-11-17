@@ -48,6 +48,7 @@ bot.start(async (ctx) => {
   
   const welcomeMessage = `Xush kelibsiz! Stadionni bron qilish uchun kunni tanlang.\n\n` +
     `📌 ESLATMA:\n` +
+    `DIQQAT!Botdan foydalanayotganda ehtiyotkor bo'ling, botni tekshirish yoki oyin qilish uchun ishlatmang bu yomon oqibatga olib kelishi mumkin!!! \n` +
     `Bron qilgandan keyin, bekor qilmoqchi bo'lsangiz, kamida 1 kun oldin bekor qilishingiz kerak.\n` +
     `Xuddi shu kuni bekor qilish 100,000 so'm jarima to'lashni talab qiladi.\n` +
     `Stadion narxi soatiga 200,000 so'm.`;
@@ -303,10 +304,10 @@ bot.on('callback_query', async (ctx) => {
         const timeLabel = `${String(booking.hourStart).padStart(2, '0')}:00–${String(booking.hourEnd).padStart(2, '0')}:00`;
         await ctx.answerCbQuery();
         await ctx.editMessageText(
-          '⚠️ <b>JARIMA ESLATMASI</b>\n\n' +
+          '⚠️ JARIMA ESLATMASI\n\n' +
           `Siz bugungi kun (${formatDate(bookingDate)}) uchun ${timeLabel} vaqtidagi broningizni bekor qilmoqdasiz.\n\n` +
-          `💰 <b>Jarima miqdori: 100,000 so'm</b>\n\n` +
-          `⚠️ <b>ESLATMA:</b> Bugungi kun uchun bekor qilish 100,000 so'm jarima to'lashni talab qiladi.\n\n` +
+          `💰Jarima miqdori: 100,000 so'm\n\n` +
+          `⚠️ ESLATMA: Bugungi kun uchun bekor qilish 100,000 so'm jarima to'lashni talab qiladi.\n\n` +
           `Iltimos, bekor qilish sababini yozing.\n` +
           `Jarimani qachon to'laysiz?`,
           {
@@ -352,7 +353,7 @@ bot.on('callback_query', async (ctx) => {
       const keyboard = await createMainKeyboard(currentWeekStart);
       
       await ctx.editMessageText(
-        `✅ <b>Bron muvaffaqiyatli bekor qilindi!</b>\n\n` +
+        `✅ Bron muvaffaqiyatli bekor qilindi!\n\n` +
         `📅 Sana: ${formatDate(bookingDate)}\n` +
         `⏰ Vaqt: ${timeLabel}\n\n` +
         `━━━━━━━━━━━━━━━━━━━━\n\n` +
