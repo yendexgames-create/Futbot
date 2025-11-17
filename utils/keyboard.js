@@ -66,14 +66,25 @@ async function createMainKeyboard(currentWeekStart = new Date()) {
     buttons.push([Markup.button.callback(buttonText, `day_${dateKey}`)]);
   }
   
-  // Add next week button
+  // Add previous and next week navigation buttons
+  const prevWeekStart = new Date(currentWeekStart);
+  prevWeekStart.setDate(prevWeekStart.getDate() - 7);
+  const prevWeekEnd = new Date(prevWeekStart);
+  prevWeekEnd.setDate(prevWeekEnd.getDate() + 6);
+  const prevWeekRange = formatWeekRange(prevWeekStart, prevWeekEnd);
+  
   const nextWeekStart = new Date(currentWeekStart);
   nextWeekStart.setDate(nextWeekStart.getDate() + 7);
   const nextWeekEnd = new Date(nextWeekStart);
   nextWeekEnd.setDate(nextWeekEnd.getDate() + 6);
-  const weekRange = formatWeekRange(nextWeekStart, nextWeekEnd);
+  const nextWeekRange = formatWeekRange(nextWeekStart, nextWeekEnd);
   
-  buttons.push([Markup.button.callback(`➡️ Keyingi hafta (${weekRange})`, `next_week_${nextWeekStart.toISOString().split('T')[0]}`)]);
+  // Only show previous week button if we're not in the current week
+  if (new Date() < currentWeekStart) {
+    buttons.push([Markup.button.callback(`⬅️ Oldingi hafta (${prevWeekRange})`, `next_week_${prevWeekStart.toISOString().split('T')[0]}`)]);
+  }
+  
+  buttons.push([Markup.button.callback(`➡️ Keyingi hafta (${nextWeekRange})`, `next_week_${nextWeekStart.toISOString().split('T')[0]}`)]);
   
   // Add cancel reservation button
   buttons.push([Markup.button.callback('❌ Bronni bekor qilish', 'cancel_reservation')]);
