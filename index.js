@@ -271,7 +271,7 @@ bot.on('callback_query', async (ctx) => {
       });
       
       const messageText = hasSameDayBookings
-        ? '⚠️ <b>ESLATMA:</b> Bugungi kun uchun bekor qilish 100,000 so\'m jarima to\'lashni talab qiladi.\n\n' +
+        ? '⚠️ ESLATMA: Bugungi kun uchun bekor qilish 100,000 so\'m jarima to\'lashni talab qiladi.\n\n' +
           'Bekor qilish uchun bronni tanlang:'
         : 'Bekor qilish uchun bronni tanlang:';
       
@@ -415,7 +415,7 @@ bot.on('callback_query', async (ctx) => {
       await ctx.reply(
         `💰 <b>Jarima to'lovi</b>\n\n` +
         `Jarimani to'lash uchun quyidagi usullardan birini tanlang:\n\n` +
-        `1️⃣ <b>Adminning Telegram lichkasiga to'lov skrinshotini yuboring</b>${adminContact}\n\n` +
+        `1️⃣ <b>Admining karta raqami:1234567889 .Adminning Telegram lichkasiga to'lov skrinshotini yuboring</b>${adminContact}\n\n` +
         `2️⃣ <b>Admin bilan kelishib oling</b> - Admin bilan to'g'ridan-to'g'ri bog'laning va to'lov haqida kelishib oling.\n\n` +
         `⚠️ <b>ESLATMA:</b> To'lov skrinshotini adminning Telegram lichkasiga yuborish yoki admin bilan kelishib olish kerak. To'lov qilgandan so'ng, admin to'lovni tasdiqlaydi va sizga xabar keladi.\n\n` +
         `✅ Admin botga to'lov haqida xabar yuborildi.\n\n` +
