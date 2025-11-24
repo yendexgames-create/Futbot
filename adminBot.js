@@ -120,7 +120,7 @@ function initAdminBot() {
         await ctx.answerCbQuery();
         await ctx.editMessageText(
           `📝 <b>Ism yoki telefon raqamni kiriting:</b>\n\n` +
-          `Masalan: Bekzod yoki +998901234567`,
+          `Masalan: Akmal yoki +998901234567`,
           {
             reply_markup: {
               inline_keyboard: [[
@@ -1133,14 +1133,6 @@ async function notifyAdminPaymentReady(booking, user) {
       `Foydalanuvchi adminning Telegram lichkasiga to'lov skrinshotini yuboradi yoki admin bilan kelishib oladi.\n\n` +
       `To'lovni tasdiqlash uchun "Jarima belgilash" bo'limiga o'ting.`;
     
-    await adminBot.telegram.sendMessage(process.env.ADMIN_CHAT_ID, message, {
-      parse_mode: 'HTML',
-      reply_markup: {
-        inline_keyboard: [[
-          { text: '💰 Jarima belgilash bo\'limiga o\'tish', callback_data: 'admin_penalty' }
-        ]]
-      }
-    });
   } catch (error) {
     console.error('❌ Error notifying admin about payment ready:', error);
   }
