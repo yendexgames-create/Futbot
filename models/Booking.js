@@ -54,6 +54,14 @@ const bookingSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  isWeekly: {
+    type: Boolean,
+    default: false
+  },
+  weeklyGroupId: {
+    type: String,
+    default: null
+  },
   reminderSent: {
     type: Boolean,
     default: false

@@ -118,6 +118,22 @@ async function notifyChannelBooking(date, hourStart, hourEnd, userId, userName =
     // Get user phone number
     const user = await User.findOne({ userId });
     const maskedPhone = user && user.phone ? maskPhoneNumber(user.phone) : 'Ko\'rsatilmagan';
+
+    // Detect if this booking is part of a weekly series
+    let weeklyLabel = '';
+    try {
+      const booking = await Booking.findOne({
+        userId,
+        date: { $gte: date, $lt: new Date(date.getTime() + 24 * 60 * 60 * 1000) },
+        hourStart,
+        status: 'booked'
+      });
+      if (booking && booking.isWeekly) {
+        weeklyLabel = '\n📆 <b>Haftalik bron:</b> Har hafta shu kuni shu vaqtda maydon band.';
+      }
+    } catch (lookupError) {
+      console.error('Error checking weekly status for channel booking notification:', lookupError);
+    }
     
     // Format userName - if it starts with @, keep it, otherwise show as name
     let userDisplay = '';
@@ -132,7 +148,7 @@ async function notifyChannelBooking(date, hourStart, hourEnd, userId, userName =
     const message = `✅ <b>Yangi bron!</b>\n\n` +
       `⏰ <b>Vaqt:</b> ${timeLabel}\n` +
       `📅 <b>Sana:</b> ${formatDate(date)}\n` +
-      `📞 <b>Telefon:</b> ${maskedPhone}${userDisplay}\n\n` +
+      `📞 <b>Telefon:</b> ${maskedPhone}${userDisplay}${weeklyLabel}\n\n` +
       `━━━━━━━━━━━━━━━━━━━━`;
     
     await botInstance.telegram.sendMessage(channelId, message, {

@@ -76,88 +76,103 @@ function createAdminTimeKeyboard(date) {
  * Get schedule for a specific day
  */
 async function getDaySchedule(date) {
-  const { getTimeSlots } = require('./time');
-  
-  // Create date range using local time (not UTC)
-  const dateStart = new Date(date);
-  dateStart.setHours(0, 0, 0, 0);
-  const dateEnd = new Date(date);
-  dateEnd.setHours(23, 59, 59, 999);
-  
-  // Get target date components for comparison
-  const targetYear = date.getFullYear();
-  const targetMonth = date.getMonth();
-  const targetDay = date.getDate();
-  
-  // Find all bookings and filter by local date (not UTC)
-  const allBookings = await Booking.find({
-    status: 'booked',
-    date: { $gte: dateStart, $lte: dateEnd }
-  });
-  
-  // Filter bookings by local date (handle timezone issues)
-  const bookings = allBookings.filter(booking => {
-    const bookingDate = new Date(booking.date);
-    return bookingDate.getFullYear() === targetYear &&
-           bookingDate.getMonth() === targetMonth &&
-           bookingDate.getDate() === targetDay;
-  });
-  
-  const bookedHours = new Set(bookings.map(b => b.hourStart));
-  const timeSlots = getTimeSlots();
-  
-  let schedule = '';
-  for (const slot of timeSlots) {
-    if (bookedHours.has(slot.start)) {
-      schedule += `${slot.label}: ❌ <b>Band</b>\n`;
-    } else {
-      schedule += `${slot.label}: 🟢 <b>Bo'sh</b>\n`;
+  try {
+    const { getTimeSlots } = require('./time');
+    
+    // Create date range using local time (not UTC)
+    const dateStart = new Date(date);
+    dateStart.setHours(0, 0, 0, 0);
+    const dateEnd = new Date(date);
+    dateEnd.setHours(23, 59, 59, 999);
+    
+    // Get target date components for comparison
+    const targetYear = date.getFullYear();
+    const targetMonth = date.getMonth();
+    const targetDay = date.getDate();
+    
+    // Find all bookings and filter by local date (not UTC)
+    const allBookings = await Booking.find({
+      status: 'booked',
+      date: { $gte: dateStart, $lte: dateEnd }
+    });
+    
+    // Filter bookings by local date (handle timezone issues)
+    const bookings = allBookings.filter(booking => {
+      const bookingDate = new Date(booking.date);
+      return bookingDate.getFullYear() === targetYear &&
+             bookingDate.getMonth() === targetMonth &&
+             bookingDate.getDate() === targetDay;
+    });
+    
+    const bookedHours = new Set(bookings.map(b => b.hourStart));
+    const timeSlots = getTimeSlots();
+    
+    let schedule = '';
+    for (const slot of timeSlots) {
+      if (bookedHours.has(slot.start)) {
+        schedule += `${slot.label}: ❌ <b>Band</b>\n`;
+      } else {
+        schedule += `${slot.label}: 🟢 <b>Bo'sh</b>\n`;
+      }
     }
+    
+    return schedule;
+  } catch (error) {
+    console.error('Error in getDaySchedule:', error);
+    throw error;
   }
-  
-  return schedule;
 }
 
 /**
  * Get schedule for all days in week
  */
 async function getWeekSchedule(weekStart = new Date()) {
-  const weekDays = getWeekDays(weekStart);
-  let schedule = '';
-  
-  for (const day of weekDays) {
-    const dayNames = ['Yakshanba', 'Dushanba', 'Seshanba', 'Chorshanba', 'Payshanba', 'Juma', 'Shanba'];
-    const dayName = dayNames[day.getDay()];
-    const daySchedule = await getDaySchedule(day);
+  try {
+    const weekDays = getWeekDays(weekStart);
+    let schedule = '';
     
-    schedule += `\n📅 <b>${dayName} (${formatDate(day)})</b>\n${daySchedule}\n`;
+    for (const day of weekDays) {
+      const dayNames = ['Yakshanba', 'Dushanba', 'Seshanba', 'Chorshanba', 'Payshanba', 'Juma', 'Shanba'];
+      const dayName = dayNames[day.getDay()];
+      const daySchedule = await getDaySchedule(day);
+      
+      schedule += `\n📅 <b>${dayName} (${formatDate(day)})</b>\n${daySchedule}\n`;
+    }
+    
+    return schedule;
+  } catch (error) {
+    console.error('Error in getWeekSchedule:', error);
+    throw error;
   }
-  
-  return schedule;
 }
 
 /**
  * Get schedule for all days in week (excluding past days)
  */
 async function getWeekScheduleExcludingPast(weekStart = new Date()) {
-  const { isPastDate } = require('./time');
-  const weekDays = getWeekDays(weekStart);
-  let schedule = '';
-  
-  for (const day of weekDays) {
-    // Skip past days
-    if (isPastDate(day)) {
-      continue;
+  try {
+    const { isPastDate } = require('./time');
+    const weekDays = getWeekDays(weekStart);
+    let schedule = '';
+    
+    for (const day of weekDays) {
+      // Skip past days
+      if (isPastDate(day)) {
+        continue;
+      }
+      
+      const dayNames = ['Yakshanba', 'Dushanba', 'Seshanba', 'Chorshanba', 'Payshanba', 'Juma', 'Shanba'];
+      const dayName = dayNames[day.getDay()];
+      const daySchedule = await getDaySchedule(day);
+      
+      schedule += `\n📅 <b>${dayName} (${formatDate(day)})</b>\n${daySchedule}\n`;
     }
     
-    const dayNames = ['Yakshanba', 'Dushanba', 'Seshanba', 'Chorshanba', 'Payshanba', 'Juma', 'Shanba'];
-    const dayName = dayNames[day.getDay()];
-    const daySchedule = await getDaySchedule(day);
-    
-    schedule += `\n📅 <b>${dayName} (${formatDate(day)})</b>\n${daySchedule}\n`;
+    return schedule;
+  } catch (error) {
+    console.error('Error in getWeekScheduleExcludingPast:', error);
+    throw error;
   }
-  
-  return schedule;
 }
 
 module.exports = {
