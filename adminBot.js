@@ -1115,7 +1115,7 @@ function initAdminBot() {
       // Handle Joylarni ko'rish button (legacy - redirects to daily bookings)
       else if (text === '📊 Joylarni ko\'rish') {
         try {
-          await ctx.answerCbQuery('Kunlik bronlar yuklanmoqda...');
+          await ctx.reply('Kunlik bronlar yuklanmoqda...');
           
           // Get today's date
           const today = new Date();
