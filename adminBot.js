@@ -1111,6 +1111,65 @@ function initAdminBot() {
       // Handle Reply Keyboard buttons
       if (text === '📝📝📝 STADIONI YOZDIRISH 📝📝📝' || text === '📝 Stadioni yozdirish') {
         await ctx.reply('Bron turini tanlang:', getAdminBookingModeKeyboard());
+      }
+      // Handle Joylarni ko'rish button (legacy - redirects to daily bookings)
+      else if (text === '📊 Joylarni ko\'rish') {
+        try {
+          await ctx.answerCbQuery('Kunlik bronlar yuklanmoqda...');
+          
+          // Get today's date
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          
+          // Get all future daily bookings
+          const bookings = await Booking.find({
+            status: 'booked',
+            date: { $gte: today },
+            isWeekly: { $ne: true }
+          }).sort({ date: 1, hourStart: 1 })
+            .populate('userId', 'phoneNumber');
+          
+          if (bookings.length === 0) {
+            await ctx.reply(
+              '📅 Hozircha hech qanday kunlik bron mavjud emas.',
+              { ...createAdminReplyKeyboard(), parse_mode: 'HTML' }
+            );
+            return;
+          }
+          
+          // Group bookings by date
+          const bookingsByDate = {};
+          bookings.forEach(booking => {
+            const dateStr = formatDate(booking.date);
+            if (!bookingsByDate[dateStr]) {
+              bookingsByDate[dateStr] = [];
+            }
+            bookingsByDate[dateStr].push(booking);
+          });
+          
+          // Format the message
+          let message = '📅 <b>Kunlik bronlar</b>\n\n';
+          
+          for (const [dateStr, dateBookings] of Object.entries(bookingsByDate)) {
+            message += `<b>📅 ${dateStr}</b>\n`;
+            
+            dateBookings.forEach(booking => {
+              const phoneNumber = booking.userId?.phoneNumber || 'Noma\'lum';
+              const timeLabel = `${booking.hourStart}:00 - ${booking.hourEnd}:00`;
+              message += `⏰ ${timeLabel}: ${phoneNumber}\n`;
+            });
+            
+            message += '\n';
+          }
+          
+          await ctx.reply(message, {
+            ...createAdminReplyKeyboard(),
+            parse_mode: 'HTML'
+          });
+        } catch (error) {
+          console.error('Error in daily bookings:', error);
+          await ctx.reply('Xatolik yuz berdi. Iltimos qayta urinib ko\'ring.');
+        }
       } 
       // Handle Daily Bookings button
       else if (text === '📅 Kunlik bronlar') {
