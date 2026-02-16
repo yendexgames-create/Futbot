@@ -1121,15 +1121,27 @@ function initAdminBot() {
           const today = new Date();
           today.setHours(0, 0, 0, 0);
           
-          // Get all future daily bookings
-          const bookings = await Booking.find({
-            status: 'booked',
-            date: { $gte: today },
-            isWeekly: { $ne: true }
-          }).sort({ date: 1, hourStart: 1 })
-            .populate('userId', 'phoneNumber');
+          console.log('Fetching bookings...');
           
-          if (bookings.length === 0) {
+          // Get all future daily bookings with error handling
+          let bookings;
+          try {
+            bookings = await Booking.find({
+              status: 'booked',
+              date: { $gte: today },
+              isWeekly: { $ne: true }
+            }).sort({ date: 1, hourStart: 1 })
+              .populate('userId', 'phoneNumber')
+              .lean();
+              
+            console.log(`Found ${bookings.length} bookings`);
+            
+          } catch (dbError) {
+            console.error('Database error:', dbError);
+            throw new Error(`Ma'lumotlar bazasida xatolik: ${dbError.message}`);
+          }
+          
+          if (!bookings || bookings.length === 0) {
             await ctx.reply(
               '📅 Hozircha hech qanday kunlik bron mavjud emas.',
               { ...createAdminReplyKeyboard(), parse_mode: 'HTML' }
