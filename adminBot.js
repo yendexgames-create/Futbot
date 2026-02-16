@@ -1120,7 +1120,7 @@ function initAdminBot() {
             reply_markup: {
               inline_keyboard: [
                 [
-                  { text: '📅 Kunlik bronlar', callback_data: 'admin_view_daily' },
+                  { text: '📅 Kunlik bronlar', callback_data: 'admin_view_daily_0' }, // 0 means current week
                   { text: '📆 Haftalik bronlar', callback_data: 'admin_view_weekly' }
                 ]
               ]
@@ -1133,71 +1133,24 @@ function initAdminBot() {
           await ctx.reply('Xatolik yuz berdi. Iltimos qayta urinib ko\'ring.');
         }
       }
-      // Handle Daily Bookings button
+      // Handle Daily Bookings with week navigation
       else if (text === '📅 Kunlik bronlar') {
-        try {
-          await ctx.answerCbQuery('Kunlik bronlar yuklanmoqda...');
-          
-          // Get today's date
-          const today = new Date();
-          today.setHours(0, 0, 0, 0);
-          
-          // Get all future daily bookings
-          const bookings = await Booking.find({
-            status: 'booked',
-            date: { $gte: today },
-            isWeekly: { $ne: true }
-          }).sort({ date: 1, hourStart: 1 })
-            .populate('userId', 'phoneNumber');
-          
-          if (bookings.length === 0) {
-            await ctx.reply(
-              '📅 Hozircha hech qanday kunlik bron mavjud emas.',
-              { ...createAdminReplyKeyboard(), parse_mode: 'HTML' }
-            );
-            return;
-          }
-          
-          // Group bookings by date
-          const bookingsByDate = {};
-          bookings.forEach(booking => {
-            const dateStr = formatDate(booking.date);
-            if (!bookingsByDate[dateStr]) {
-              bookingsByDate[dateStr] = [];
-            }
-            bookingsByDate[dateStr].push(booking);
-          });
-          
-          // Format the message
-          let message = '📅 <b>Kunlik bronlar</b>\n\n';
-          
-          for (const [dateStr, dateBookings] of Object.entries(bookingsByDate)) {
-            message += `<b>📅 ${dateStr}</b>\n`;
-            
-            dateBookings.forEach(booking => {
-              const phoneNumber = booking.userId?.phoneNumber || 'Noma\'lum';
-              const timeLabel = `${booking.hourStart}:00 - ${booking.hourEnd}:00`;
-              message += `⏰ ${timeLabel}: ${phoneNumber}\n`;
-            });
-            
-            message += '\n';
-          }
-          
-          await ctx.reply(message, {
-            ...createAdminReplyKeyboard(),
-            parse_mode: 'HTML'
-          });
-        } catch (error) {
-          console.error('Error in daily bookings:', error);
-          await ctx.reply('Xatolik yuz berdi. Iltimos qayta urinib ko\'ring.');
-        }
+        // Redirect to current week view
+        ctx.answerCbQuery();
+        const today = new Date();
+        const weekStart = new Date(today);
+        weekStart.setDate(today.getDate() - today.getDay() + (today.getDay() === 0 ? -6 : 1));
+        
+        // Show bookings for current week
+        await showDailyBookingsForWeek(ctx, weekStart);
       }
-      // Handle Weekly Bookings button
+      
+      // Handle Weekly Bookings
       else if (text === '📆 Haftalik bronlar') {
         try {
           await ctx.answerCbQuery('Haftalik bronlar yuklanmoqda...');
           
-          // Get all weekly bookings (grouped by weeklyGroupId)
+          // Get all weekly bookings
           const weeklyBookings = await Booking.aggregate([
             {
               $match: {
@@ -1209,6 +1162,179 @@ function initAdminBot() {
             {
               $sort: { date: 1 }
             },
+            {
+              $group: {
+                _id: '$weeklyGroupId',
+                firstBooking: { $first: '$$ROOT' },
+                count: { $sum: 1 }
+              }
+            },
+            {
+              $lookup: {
+                from: 'users',
+                localField: 'firstBooking.userId',
+                foreignField: '_id',
+                as: 'user'
+              }
+            },
+            {
+              $unwind: '$user'
+            },
+            {
+              $sort: { 'firstBooking.date': 1 }
+            }
+          ]);
+          
+          if (weeklyBookings.length === 0) {
+            await ctx.reply(
+              '📆 Hozircha hech qanday haftalik bron mavjud emas.',
+              { ...createAdminReplyKeyboard(), parse_mode: 'HTML' }
+            );
+            return;
+          }
+          
+          // Format the message
+          let message = '� <b>Haftalik bronlar</b>\n\n';
+          
+          weeklyBookings.forEach(group => {
+            const booking = group.firstBooking;
+            const dayOfWeek = booking.date.toLocaleDateString('uz-UZ', { weekday: 'long' });
+            const timeLabel = `${booking.hourStart}:00 - ${booking.hourEnd}:00`;
+            const phoneNumber = group.user?.phoneNumber || 'Noma\'lum';
+            
+            message += `<b>${dayOfWeek.charAt(0).toUpperCase() + dayOfWeek.slice(1)}</b>\n`;
+            message += `⏰ ${timeLabel}\n`;
+            message += `📞 ${phoneNumber}\n\n`;
+          });
+          
+          await ctx.reply(message, {
+            ...createAdminReplyKeyboard(),
+            parse_mode: 'HTML'
+          });
+          
+        } catch (error) {
+          console.error('Error in weekly bookings:', error);
+          await ctx.reply('Xatolik yuz berdi. Iltimos qayta urinib ko\'ring.');
+        }
+      }
+// Helper function to show daily bookings for a specific week
+async function showDailyBookingsForWeek(ctx, weekStart) {
+  try {
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekStart.getDate() + 6);
+    weekEnd.setHours(23, 59, 59, 999);
+    
+    // Format date for display
+    const formatDate = (date) => {
+      return date.toLocaleDateString('uz-UZ', { 
+        day: '2-digit', 
+        month: '2-digit', 
+        year: 'numeric'
+      });
+    };
+    
+    // Get bookings for this week
+    const bookings = await Booking.find({
+      status: 'booked',
+      date: { $gte: weekStart, $lte: weekEnd },
+      isWeekly: { $ne: true }
+    }).sort({ date: 1, hourStart: 1 })
+      .populate('userId', 'phoneNumber');
+    
+    // Group by date
+    const bookingsByDate = {};
+    bookings.forEach(booking => {
+      const dateStr = formatDate(booking.date);
+      if (!bookingsByDate[dateStr]) {
+        bookingsByDate[dateStr] = [];
+      }
+      bookingsByDate[dateStr].push(booking);
+    });
+    
+    // Format the message
+    let message = `📅 <b>Kunlik bronlar (${formatDate(weekStart)} - ${formatDate(weekEnd)})</b>\n\n`;
+    
+    // Add bookings for each day
+    for (let i = 0; i < 7; i++) {
+      const currentDate = new Date(weekStart);
+      currentDate.setDate(weekStart.getDate() + i);
+      const dateStr = formatDate(currentDate);
+      
+      message += `<b>${dateStr} (${currentDate.toLocaleDateString('uz-UZ', { weekday: 'long' })})</b>\n`;
+      
+      if (bookingsByDate[dateStr]?.length > 0) {
+        bookingsByDate[dateStr].forEach(booking => {
+          const phoneNumber = booking.userId?.phoneNumber || 'Noma\'lum';
+          const timeLabel = `${booking.hourStart}:00 - ${booking.hourEnd}:00`;
+          message += `⏰ ${timeLabel}: ${phoneNumber}\n`;
+        });
+      } else {
+        message += `(Bron mavjud emas)\n`;
+      }
+      
+      message += '\n';
+    }
+    
+    // Add navigation buttons
+    const prevWeek = new Date(weekStart);
+    prevWeek.setDate(weekStart.getDate() - 7);
+    const nextWeek = new Date(weekStart);
+    nextWeek.setDate(weekStart.getDate() + 7);
+    
+    const keyboard = {
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: '⬅️ Oldingi hafta', callback_data: `admin_week_${prevWeek.getTime()}` },
+            { text: 'Keyingi hafta ➡️', callback_data: `admin_week_${nextWeek.getTime()}` }
+          ],
+          [
+            { text: '🔙 Bosh menyu', callback_data: 'admin_back' }
+          ]
+        ]
+      }
+    };
+    
+    await ctx.reply(message, {
+      ...keyboard,
+      parse_mode: 'HTML'
+    });
+    
+  } catch (error) {
+    console.error('Error showing daily bookings:', error);
+    await ctx.reply('Xatolik yuz berdi. Iltimos qayta urinib ko\'ring.');
+  }
+}
+
+// Add callback query handler for week navigation
+adminBot.action(/^admin_week_\d+$/, async (ctx) => {
+  try {
+    const timestamp = parseInt(ctx.match[0].replace('admin_week_', ''));
+    const weekStart = new Date(timestamp);
+    await ctx.answerCbQuery();
+    await showDailyBookingsForWeek(ctx, weekStart);
+  } catch (error) {
+    console.error('Error in week navigation:', error);
+    await ctx.answerCbQuery('Xatolik yuz berdi');
+  }
+});
+
+// Handle the view daily button from the inline keyboard
+adminBot.action('admin_view_daily', async (ctx) => {
+  const today = new Date();
+  const weekStart = new Date(today);
+  weekStart.setDate(today.getDate() - today.getDay() + (today.getDay() === 0 ? -6 : 1));
+  await ctx.answerCbQuery();
+  await showDailyBookingsForWeek(ctx, weekStart);
+});
+
+// Handle the view weekly button from the inline keyboard
+adminBot.action('admin_view_weekly', async (ctx) => {
+  try {
+    await ctx.answerCbQuery('Haftalik bronlar yuklanmoqda...');
+    
+    // Get all weekly bookings
+    const weeklyBookings = await Booking.aggregate([
             {
               $group: {
                 _id: '$weeklyGroupId',
