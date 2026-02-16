@@ -1,6 +1,7 @@
 const { Markup } = require('telegraf');
 const { getWeekDays, formatDate, formatDateShort, isPastDate } = require('./time');
 const Booking = require('../models/Booking');
+const User = require('../models/User');
 
 /**
  * Create admin main menu keyboard (Inline)
@@ -104,13 +105,44 @@ async function getDaySchedule(date) {
              bookingDate.getDate() === targetDay;
     });
     
-    const bookedHours = new Set(bookings.map(b => b.hourStart));
+    // Prepare user info map for booked slots
+    const userIds = bookings.map(b => b.userId);
+    const users = userIds.length > 0
+      ? await User.find({ userId: { $in: userIds } })
+      : [];
+    const userMap = {};
+    for (const u of users) {
+      userMap[u.userId] = u;
+    }
+
+    const bookedByHour = {};
+    for (const b of bookings) {
+      bookedByHour[b.hourStart] = b;
+    }
+
     const timeSlots = getTimeSlots();
     
     let schedule = '';
     for (const slot of timeSlots) {
-      if (bookedHours.has(slot.start)) {
-        schedule += `${slot.label}: ❌ <b>Band</b>\n`;
+      const booking = bookedByHour[slot.start];
+      if (booking) {
+        const user = userMap[booking.userId];
+        let extraInfo = '';
+
+        if (user) {
+          if (user.phone) {
+            extraInfo += ` (${user.phone})`;
+          } else if (user.firstName) {
+            extraInfo += ` (${user.firstName})`;
+          }
+        }
+
+        if (booking.isWeekly) {
+          // Add weekly booking marker
+          extraInfo += extraInfo ? ' - Haftalik bron' : ' (Haftalik bron)';
+        }
+
+        schedule += `${slot.label}: ❌ <b>Band</b>${extraInfo}\n`;
       } else {
         schedule += `${slot.label}: 🟢 <b>Bo'sh</b>\n`;
       }
