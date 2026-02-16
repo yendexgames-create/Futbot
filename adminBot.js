@@ -27,52 +27,6 @@ function getAdminBookingModeKeyboard() {
   };
 }
 
-async function generateWeeklySchedule(startDate) {
-  const endDate = new Date(startDate);
-  endDate.setDate(startDate.getDate() + 6); // Get the end of the week
-  
-  // Get all bookings for this week
-  const bookings = await Booking.find({
-    date: { $gte: startDate, $lte: endDate },
-    status: 'booked'
-  }).sort({ date: 1, hourStart: 1 });
-
-  // Create a map of date -> hour -> booking
-  const schedule = {};
-  const days = ['Yakshanba', 'Dushanba', 'Seshanba', 'Chorshanba', 'Payshanba', 'Juma', 'Shanba'];
-  
-  // Initialize empty schedule
-  for (let i = 0; i < 7; i++) {
-    const date = new Date(startDate);
-    date.setDate(date.getDate() + i);
-    const dateKey = date.toISOString().split('T')[0];
-    schedule[dateKey] = {
-      date,
-      dayName: days[date.getDay()],
-      slots: {}
-    };
-    
-    // Initialize time slots from 19:00 to 23:00
-    for (let hour = 19; hour <= 23; hour++) {
-      schedule[dateKey].slots[hour] = {
-        start: hour,
-        end: hour + 1,
-        isBooked: false
-      };
-    }
-  }
-  
-  // Mark booked slots
-  bookings.forEach(booking => {
-    const dateKey = booking.date.toISOString().split('T')[0];
-    if (schedule[dateKey] && schedule[dateKey].slots[booking.hourStart]) {
-      schedule[dateKey].slots[booking.hourStart].isBooked = true;
-    }
-  });
-  
-  return schedule;
-}
-
 async function createWeeklyBookingsForAdmin(userId, firstDate, hourStart, hourEnd, weeklyGroupId) {
   // Limit admin weekly series to approximately 1 month (30 days) from the first date
   const startDate = new Date(firstDate);
@@ -1157,163 +1111,27 @@ function initAdminBot() {
       // Handle Reply Keyboard buttons
       if (text === '📝📝📝 STADIONI YOZDIRISH 📝📝📝' || text === '📝 Stadioni yozdirish') {
         await ctx.reply('Bron turini tanlang:', getAdminBookingModeKeyboard());
-      }
-      // Handle Joylarni ko'rish button - show booking type selection
-      else if (text === '📊 Joylarni ko\'rish') {
-        try {
-          // Show inline keyboard with two buttons
-          const keyboard = {
-            reply_markup: {
-              inline_keyboard: [
-                [
-                  { text: '📅 Kunlik bronlar', callback_data: 'admin_view_daily' },
-                  { text: '📆 Haftalik bronlar', callback_data: 'admin_view_weekly' }
-                ]
-              ]
-            }
-          };
-          
-          await ctx.reply('Qanday bronlarni ko\'rmoqchisiz?', keyboard);
-        } catch (error) {
-          console.error('Error in booking selection:', error);
-          await ctx.reply('Xatolik yuz berdi. Iltimos qayta urinib ko\'ring.');
+      } else if (text === '📊 Joylarni ko\'rish') {
+        const weekStart = getWeekStart();
+        const schedule = await getWeekScheduleExcludingPast(weekStart);
+        
+        const nextWeekStart = new Date(weekStart);
+        nextWeekStart.setDate(nextWeekStart.getDate() + 7);
+        const prevWeekStart = new Date(weekStart);
+        prevWeekStart.setDate(prevWeekStart.getDate() - 7);
+        
+        const buttons = [];
+        if (prevWeekStart >= getWeekStart(new Date())) {
+          buttons.push([Markup.button.callback('⬅️ Oldingi hafta', `admin_schedule_week_${prevWeekStart.toISOString().split('T')[0]}`)]);
         }
-      }
-      // Handle Daily Bookings button - Show weekly schedule
-      else if (text === '📅 Kunlik bronlar' || text === 'keyingi_hafta_daily') {
-        try {
-          await ctx.answerCbQuery?.('Jadval yuklanmoqda...');
-          
-          // Get start of current week (Monday)
-          const today = new Date();
-          const startDate = new Date(today);
-          startDate.setDate(today.getDate() - today.getDay() + 1); // Start from Monday
-          startDate.setHours(0, 0, 0, 0);
-          
-          // If next week button was clicked
-          if (text === 'keyingi_hafta_daily') {
-            startDate.setDate(startDate.getDate() + 7);
-          }
-          
-          const schedule = await generateWeeklySchedule(startDate);
-          
-          // Format the message
-          let message = '� <b>Haftalik jadval</b>\n\n';
-          
-          // Add each day's schedule
-          Object.values(schedule).forEach(day => {
-            const dateStr = formatDate(day.date, 'dd.mm.yyyy');
-            message += `<b>📅 ${day.dayName} (${dateStr})</b>\n`;
-            
-            // Add time slots
-            for (let hour = 19; hour <= 23; hour++) {
-              const slot = day.slots[hour];
-              const timeLabel = `${String(hour).padStart(2, '0')}:00–${String(hour + 1).padStart(2, '0')}:00`;
-              const status = slot.isBooked ? '❌ Band' : '🟢 Bo\'sh';
-              message += `${timeLabel}: ${status}\n`;
-            }
-            
-            message += '\n'; // Add space between days
-          });
-          
-          // Add navigation buttons
-          const nextWeekBtn = Markup.button.callback('▶️ Keyingi hafta', 'next_week_daily');
-          const backBtn = Markup.button.callback('🔙 Orqaga', 'back_to_booking_type');
-          
-          if (ctx.updateType === 'callback_query') {
-            await ctx.editMessageText(message, {
-              parse_mode: 'HTML',
-              ...Markup.inlineKeyboard([
-                [nextWeekBtn],
-                [backBtn]
-              ])
-            });
-          } else {
-            await ctx.reply(message, {
-              parse_mode: 'HTML',
-              ...Markup.inlineKeyboard([
-                [nextWeekBtn],
-                [backBtn]
-              ])
-            });
-          }
-        } catch (error) {
-          console.error('Error showing weekly schedule:', error);
-          await ctx.reply('Xatolik yuz berdi. Iltimos qayta urinib ko\'ring.');
-        }
-      }
-      // Handle Weekly Bookings button
-      else if (text === '📆 Haftalik bronlar') {
-        try {
-          await ctx.answerCbQuery?.('Haftalik bronlar yuklanmoqda...');
-          
-          // Get all weekly bookings
-          const weeklyBookings = await Booking.aggregate([
-            {
-              $match: {
-                status: 'booked',
-                isWeekly: true,
-                weeklyGroupId: { $exists: true }
-              }
-            },
-            {
-              $group: {
-                _id: '$weeklyGroupId',
-                dayOfWeek: { $first: { $dayOfWeek: '$date' } },
-                hourStart: { $first: '$hourStart' },
-                hourEnd: { $first: '$hourEnd' },
-                user: { $first: '$userId' }
-              }
-            },
-            {
-              $lookup: {
-                from: 'users',
-                localField: 'user',
-                foreignField: '_id',
-                as: 'userInfo'
-              }
-            },
-            {
-              $unwind: '$userInfo'
-            }
-          ]);
-
-          // Format the message
-          let message = '📆 <b>Haftalik bronlar</b>\n\n';
-          const days = ['Yakshanba', 'Dushanba', 'Seshanba', 'Chorshanba', 'Payshanba', 'Juma', 'Shanba'];
-          
-          if (weeklyBookings.length === 0) {
-            message += 'Hozircha hech qanday haftalik bron mavjud emas.';
-          } else {
-            weeklyBookings.forEach(booking => {
-              const dayName = days[booking.dayOfWeek] || 'Noma\'lum';
-              const timeLabel = `${String(booking.hourStart).padStart(2, '0')}:00-${String(booking.hourEnd).padStart(2, '0')}:00`;
-              const phoneNumber = booking.userInfo?.phoneNumber || 'Noma\'lum';
-              
-              message += `• <b>${dayName}</b> (${timeLabel}): ${phoneNumber}\n`;
-            });
-          }
-
-          // Add back button
-          const backBtn = Markup.button.callback('🔙 Orqaga', 'back_to_booking_type');
-          
-          if (ctx.updateType === 'callback_query') {
-            await ctx.editMessageText(message, {
-              parse_mode: 'HTML',
-              ...Markup.inlineKeyboard([[backBtn]])
-            });
-          } else {
-            await ctx.reply(message, {
-              parse_mode: 'HTML',
-              ...Markup.inlineKeyboard([[backBtn]])
-            });
-          }
-        } catch (error) {
-          console.error('Error in weekly bookings:', error);
-          await ctx.reply('Xatolik yuz berdi. Iltimos qayta urinib ko\'ring.');
-        }
-      }
-      else if (text === '❌ Bronlarni bekor qilish') {
+        buttons.push([Markup.button.callback('➡️ Keyingi hafta', `admin_schedule_week_${nextWeekStart.toISOString().split('T')[0]}`)]);
+        buttons.push([Markup.button.callback('🔙 Orqaga', 'admin_back')]);
+        
+        await ctx.reply(`📊 <b>Haftalik jadval</b>\n\n${schedule || 'O\'tib ketgan kunlar ko\'rsatilmaydi.'}`, {
+          reply_markup: { inline_keyboard: buttons },
+          parse_mode: 'HTML'
+        });
+      } else if (text === '❌ Bronlarni bekor qilish') {
         const buttons = [
           [Markup.button.callback('❌ Kunlik broni bekor qilish', 'admin_cancel_daily_menu')],
           [Markup.button.callback('❌ Haftalik broni bekor qilish', 'admin_cancel_weekly_menu')],
