@@ -8,7 +8,10 @@ const Booking = require('../models/Booking');
 function createAdminMainKeyboard() {
   return Markup.inlineKeyboard([
     [Markup.button.callback('📝📝📝 STADIONI YOZDIRISH 📝📝📝', 'admin_book')],
-    [Markup.button.callback('📊 Joylarni ko\'rish', 'admin_view_schedule')],
+    [
+      Markup.button.callback('📅 Kunlik bronlar', 'admin_view_daily'),
+      Markup.button.callback('📆 Haftalik bronlar', 'admin_view_weekly')
+    ],
     [Markup.button.callback('❌ Bronlarni bekor qilish', 'admin_cancel_booking')],
     [Markup.button.callback('💰 Jarima belgilash', 'admin_penalty')]
   ]);
@@ -20,8 +23,8 @@ function createAdminMainKeyboard() {
 function createAdminReplyKeyboard() {
   return Markup.keyboard([
     ['📝📝📝 STADIONI YOZDIRISH 📝📝📝'],
-    ['📊 Joylarni ko\'rish', '❌ Bronlarni bekor qilish'],
-    ['💰 Jarima belgilash']
+    ['� Kunlik bronlar', '📆 Haftalik bronlar'],
+    ['❌ Bronlarni bekor qilish', '💰 Jarima belgilash']
   ]).resize().persistent();
 }
 

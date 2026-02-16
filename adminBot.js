@@ -1111,27 +1111,138 @@ function initAdminBot() {
       // Handle Reply Keyboard buttons
       if (text === '📝📝📝 STADIONI YOZDIRISH 📝📝📝' || text === '📝 Stadioni yozdirish') {
         await ctx.reply('Bron turini tanlang:', getAdminBookingModeKeyboard());
-      } else if (text === '📊 Joylarni ko\'rish') {
-        const weekStart = getWeekStart();
-        const schedule = await getWeekScheduleExcludingPast(weekStart);
-        
-        const nextWeekStart = new Date(weekStart);
-        nextWeekStart.setDate(nextWeekStart.getDate() + 7);
-        const prevWeekStart = new Date(weekStart);
-        prevWeekStart.setDate(prevWeekStart.getDate() - 7);
-        
-        const buttons = [];
-        if (prevWeekStart >= getWeekStart(new Date())) {
-          buttons.push([Markup.button.callback('⬅️ Oldingi hafta', `admin_schedule_week_${prevWeekStart.toISOString().split('T')[0]}`)]);
+      } 
+      // Handle Daily Bookings button
+      else if (text === '📅 Kunlik bronlar') {
+        try {
+          await ctx.answerCbQuery('Kunlik bronlar yuklanmoqda...');
+          
+          // Get today's date
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          
+          // Get all future daily bookings
+          const bookings = await Booking.find({
+            status: 'booked',
+            date: { $gte: today },
+            isWeekly: { $ne: true }
+          }).sort({ date: 1, hourStart: 1 })
+            .populate('userId', 'phoneNumber');
+          
+          if (bookings.length === 0) {
+            await ctx.reply(
+              '📅 Hozircha hech qanday kunlik bron mavjud emas.',
+              { ...createAdminReplyKeyboard(), parse_mode: 'HTML' }
+            );
+            return;
+          }
+          
+          // Group bookings by date
+          const bookingsByDate = {};
+          bookings.forEach(booking => {
+            const dateStr = formatDate(booking.date);
+            if (!bookingsByDate[dateStr]) {
+              bookingsByDate[dateStr] = [];
+            }
+            bookingsByDate[dateStr].push(booking);
+          });
+          
+          // Format the message
+          let message = '📅 <b>Kunlik bronlar</b>\n\n';
+          
+          for (const [dateStr, dateBookings] of Object.entries(bookingsByDate)) {
+            message += `<b>📅 ${dateStr}</b>\n`;
+            
+            dateBookings.forEach(booking => {
+              const phoneNumber = booking.userId?.phoneNumber || 'Noma\'lum';
+              const timeLabel = `${booking.hourStart}:00 - ${booking.hourEnd}:00`;
+              message += `⏰ ${timeLabel}: ${phoneNumber}\n`;
+            });
+            
+            message += '\n';
+          }
+          
+          await ctx.reply(message, {
+            ...createAdminReplyKeyboard(),
+            parse_mode: 'HTML'
+          });
+        } catch (error) {
+          console.error('Error in daily bookings:', error);
+          await ctx.reply('Xatolik yuz berdi. Iltimos qayta urinib ko\'ring.');
         }
-        buttons.push([Markup.button.callback('➡️ Keyingi hafta', `admin_schedule_week_${nextWeekStart.toISOString().split('T')[0]}`)]);
-        buttons.push([Markup.button.callback('🔙 Orqaga', 'admin_back')]);
-        
-        await ctx.reply(`📊 <b>Haftalik jadval</b>\n\n${schedule || 'O\'tib ketgan kunlar ko\'rsatilmaydi.'}`, {
-          reply_markup: { inline_keyboard: buttons },
-          parse_mode: 'HTML'
-        });
-      } else if (text === '❌ Bronlarni bekor qilish') {
+      }
+      // Handle Weekly Bookings button
+      else if (text === '📆 Haftalik bronlar') {
+        try {
+          await ctx.answerCbQuery('Haftalik bronlar yuklanmoqda...');
+          
+          // Get all weekly bookings (grouped by weeklyGroupId)
+          const weeklyBookings = await Booking.aggregate([
+            {
+              $match: {
+                status: 'booked',
+                isWeekly: true,
+                weeklyGroupId: { $exists: true }
+              }
+            },
+            {
+              $sort: { date: 1 }
+            },
+            {
+              $group: {
+                _id: '$weeklyGroupId',
+                firstBooking: { $first: '$$ROOT' },
+                count: { $sum: 1 }
+              }
+            },
+            {
+              $lookup: {
+                from: 'users',
+                localField: 'firstBooking.userId',
+                foreignField: '_id',
+                as: 'user'
+              }
+            },
+            {
+              $unwind: '$user'
+            },
+            {
+              $sort: { 'firstBooking.date': 1 }
+            }
+          ]);
+          
+          if (weeklyBookings.length === 0) {
+            await ctx.reply(
+              '📆 Hozircha hech qanday haftalik bron mavjud emas.',
+              { ...createAdminReplyKeyboard(), parse_mode: 'HTML' }
+            );
+            return;
+          }
+          
+          // Format the message
+          let message = '📆 <b>Haftalik bronlar</b>\n\n';
+          
+          weeklyBookings.forEach(group => {
+            const booking = group.firstBooking;
+            const dayOfWeek = booking.date.toLocaleDateString('uz-UZ', { weekday: 'long' });
+            const timeLabel = `${booking.hourStart}:00 - ${booking.hourEnd}:00`;
+            const phoneNumber = group.user?.phoneNumber || 'Noma\'lum';
+            
+            message += `<b>${dayOfWeek.charAt(0).toUpperCase() + dayOfWeek.slice(1)}</b>\n`;
+            message += `⏰ ${timeLabel}\n`;
+            message += `📞 ${phoneNumber}\n\n`;
+          });
+          
+          await ctx.reply(message, {
+            ...createAdminReplyKeyboard(),
+            parse_mode: 'HTML'
+          });
+        } catch (error) {
+          console.error('Error in weekly bookings:', error);
+          await ctx.reply('Xatolik yuz berdi. Iltimos qayta urinib ko\'ring.');
+        }
+      }
+      else if (text === '❌ Bronlarni bekor qilish') {
         const buttons = [
           [Markup.button.callback('❌ Kunlik broni bekor qilish', 'admin_cancel_daily_menu')],
           [Markup.button.callback('❌ Haftalik broni bekor qilish', 'admin_cancel_weekly_menu')],
