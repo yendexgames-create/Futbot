@@ -1388,8 +1388,7 @@ adminBot.action('admin_view_weekly', async (ctx) => {
           console.error('Error in weekly bookings:', error);
           await ctx.reply('Xatolik yuz berdi. Iltimos qayta urinib ko\'ring.');
         }
-      }
-      else if (text === '❌ Bronlarni bekor qilish') {
+      } else if (text === '❌ Bronlarni bekor qilish') {
         const buttons = [
           [Markup.button.callback('❌ Kunlik broni bekor qilish', 'admin_cancel_daily_menu')],
           [Markup.button.callback('❌ Haftalik broni bekor qilish', 'admin_cancel_weekly_menu')],
