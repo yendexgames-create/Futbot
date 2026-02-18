@@ -627,7 +627,7 @@ bot.on('callback_query', async (ctx) => {
       
       await ctx.answerCbQuery('Bron bekor qilindi.');
       
-      const timeLabel = `${String(booking.hourStart).padStart(2, '0')}:00–${String(booking.hourEnd).padStart(2, '0')}:00`;
+      const timeLabel = `${String(booking.hourStart).padStart(2, '0')}:00–${String(booking.hourEnd === 0 ? '00' : booking.hourEnd).padStart(2, '0')}:00`;
       const currentWeekStart = getWeekStart();
       const keyboard = await createMainKeyboard(currentWeekStart);
       
@@ -705,6 +705,194 @@ bot.on('callback_query', async (ctx) => {
       );
     }
     
+    // Handle reschedule menu
+    else if (data === 'reschedule_menu') {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const bookings = await Booking.find({
+        userId,
+        status: 'booked',
+        date: { $gte: today }
+      }).sort({ date: 1, hourStart: 1 });
+
+      await ctx.answerCbQuery();
+
+      if (!bookings.length) {
+        await ctx.reply('❌ Sizda kelajakdagi bronlar yo\'q, shuning uchun vaqtni almashtirib bo\'lmaydi.');
+        return;
+      }
+
+      const buttons = bookings.map((booking) => {
+        const bookingDate = new Date(booking.date);
+        const timeLabel = `${String(booking.hourStart).padStart(2, '0')}:00–${String(booking.hourEnd === 0 ? '00' : booking.hourEnd).padStart(2, '0')}:00`;
+        return [
+          Markup.button.callback(
+            `${formatDate(bookingDate)} | ${timeLabel}`,
+            `reschedule_select_${booking._id}`
+          )
+        ];
+      });
+
+      buttons.push([Markup.button.callback('🔙 Orqaga', 'back_to_week')]);
+
+      const infoText =
+        '⏱ <b>Bron vaqtini almashtirish</b>\n\n' +
+        'Bu funksiya bir kunda ichida bron qilingan vaqtni boshqa <b>bo\'sh vaqtga</b> ko\'chirish uchun ishlatiladi.\n' +
+        'Masalan: Dushanba 19:00–20:00 bronini Dushanba 20:00–21:00 ga almashtirish.\n\n' +
+        'Quyidan qaysi bron vaqtidan voz kechib, uni boshqa vaqtga ko\'chirmoqchi ekaningizni tanlang:';
+
+      await ctx.editMessageText(infoText, {
+        reply_markup: { inline_keyboard: buttons },
+        parse_mode: 'HTML'
+      });
+    }
+
+    // Handle reschedule select booking
+    else if (data.startsWith('reschedule_select_')) {
+      const bookingId = data.replace('reschedule_select_', '');
+      const booking = await Booking.findById(bookingId);
+
+      if (!booking || booking.userId !== userId || booking.status !== 'booked') {
+        await ctx.answerCbQuery('Bron topilmadi yoki allaqachon bekor qilingan.');
+        return;
+      }
+
+      const bookingDate = new Date(booking.date);
+      bookingDate.setHours(0, 0, 0, 0);
+
+      // Get all bookings for that day (to compute free slots)
+      const dayStart = new Date(bookingDate);
+      const dayEnd = new Date(bookingDate);
+      dayEnd.setHours(23, 59, 59, 999);
+
+      const dayBookings = await Booking.find({
+        date: { $gte: dayStart, $lte: dayEnd },
+        status: 'booked'
+      });
+
+      const { getTimeSlots } = require('./utils/time');
+      const timeSlots = getTimeSlots();
+
+      const bookedHours = new Set(
+        dayBookings
+          .filter(b => String(b._id) !== String(booking._id))
+          .map(b => b.hourStart)
+      );
+
+      const year = bookingDate.getFullYear();
+      const month = String(bookingDate.getMonth() + 1).padStart(2, '0');
+      const dayNum = String(bookingDate.getDate()).padStart(2, '0');
+      const dateKey = `${year}-${month}-${dayNum}`;
+
+      const buttons = [];
+      for (const slot of timeSlots) {
+        const isSameSlot = slot.start === booking.hourStart;
+        const isBooked = bookedHours.has(slot.start);
+
+        if (isSameSlot) {
+          buttons.push([
+            Markup.button.callback(
+              `🔄 ${slot.label} (Joriy vaqt)`,
+              'noop_reschedule_current'
+            )
+          ]);
+        } else if (!isBooked) {
+          buttons.push([
+            Markup.button.callback(
+              `🟢 ${slot.label} (Bo\'sh)`,
+              `reschedule_slot_${booking._id}_${dateKey}_${slot.start}_${slot.end}`
+            )
+          ]);
+        } else {
+          buttons.push([
+            Markup.button.callback(
+              `❌ ${slot.label} (Band)`,
+              'noop_reschedule_booked'
+            )
+          ]);
+        }
+      }
+
+      buttons.push([Markup.button.callback('🔙 Bronni qayta tanlash', 'reschedule_menu')]);
+
+      const header =
+        '⏱ <b>Bron vaqtini almashtirish</b>\n\n' +
+        `📅 Sana: ${formatDate(bookingDate)}\n` +
+        `⏰ Joriy vaqt: ${String(booking.hourStart).padStart(2, '0')}:00–${String(booking.hourEnd === 0 ? '00' : booking.hourEnd).padStart(2, '0')}:00\n\n` +
+        'Quyidan yangi vaqtni tanlang (faqat bo\'sh vaqtlar almashtiriladi):';
+
+      await ctx.answerCbQuery();
+      await ctx.editMessageText(header, {
+        reply_markup: { inline_keyboard: buttons },
+        parse_mode: 'HTML'
+      });
+    }
+
+    // Handle reschedule apply new slot
+    else if (data.startsWith('reschedule_slot_')) {
+      const parts = data.replace('reschedule_slot_', '').split('_');
+      const bookingId = parts[0];
+      const dateStr = `${parts[1]}-${parts[2]}-${parts[3]}`; // from YYYY-MM-DD flattened
+      const hourStart = parseInt(parts[4]);
+      const hourEnd = parseInt(parts[5]);
+
+      const booking = await Booking.findById(bookingId);
+
+      if (!booking || booking.userId !== userId || booking.status !== 'booked') {
+        await ctx.answerCbQuery('Bron topilmadi yoki allaqachon bekor qilingan.');
+        return;
+      }
+
+      // Parse date string as local date
+      const [year, month, day] = dateStr.split('-').map(Number);
+      const bookingDate = new Date(year, month - 1, day);
+      bookingDate.setHours(0, 0, 0, 0);
+
+      // Ensure target slot is still free
+      const dayStart = new Date(bookingDate);
+      const dayEnd = new Date(bookingDate);
+      dayEnd.setHours(23, 59, 59, 999);
+
+      const existing = await Booking.findOne({
+        date: { $gte: dayStart, $lte: dayEnd },
+        hourStart,
+        status: 'booked'
+      });
+
+      if (existing && String(existing._id) !== String(booking._id)) {
+        await ctx.answerCbQuery('Bu vaqt shu orada band bo\'lib qoldi. Iltimos, boshqa vaqtni tanlang.');
+        return;
+      }
+
+      const oldHourStart = booking.hourStart;
+      const oldHourEnd = booking.hourEnd;
+
+      booking.hourStart = hourStart;
+      booking.hourEnd = hourEnd;
+      await booking.save();
+
+      await ctx.answerCbQuery('Bron vaqti muvaffaqiyatli almashtirildi!');
+
+      const oldLabel = `${String(oldHourStart).padStart(2, '0')}:00–${String(oldHourEnd === 0 ? '00' : oldHourEnd).padStart(2, '0')}:00`;
+      const newLabel = `${String(hourStart).padStart(2, '0')}:00–${String(hourEnd === 0 ? '00' : hourEnd).padStart(2, '0')}:00`;
+
+      const message =
+        '✅ <b>Bron vaqti almashtirildi!</b>\n\n' +
+        `📅 Sana: ${formatDate(bookingDate)}\n` +
+        `⏰ Eski vaqt: ${oldLabel}\n` +
+        `⏰ Yangi vaqt: ${newLabel}\n\n` +
+        'Stadionni bron qilish uchun yana boshqa kun yoki vaqtni tanlashingiz mumkin.';
+
+      const currentWeekStart = getWeekStart();
+      const keyboard = await createMainKeyboard(currentWeekStart);
+
+      await ctx.editMessageText(message, {
+        reply_markup: keyboard.reply_markup,
+        parse_mode: 'HTML'
+      });
+    }
+    return; // stop processing other handlers
   } catch (error) {
     console.error('Error handling callback:', error);
     await ctx.answerCbQuery('Xatolik yuz berdi. Iltimos, qayta urinib ko\'ring.');
@@ -760,13 +948,13 @@ bot.on('contact', async (ctx) => {
       // Notify channel (phone will be fetched in notifyChannelBooking function)
       await notifyChannelBooking(date, hourStart, hourEnd, userId, user.username || '');
       
-        // Send daily schedule to admin and channel
-        const { generateDailySchedule } = require('./utils/schedule');
-        const { postDailyScheduleToAdmin } = require('./adminBot');
-        const { postDailyScheduleToChannel } = require('./cron/schedule');
-        const scheduleText = await generateDailySchedule(date);
-        await postDailyScheduleToAdmin(scheduleText, date);
-        await postDailyScheduleToChannel(scheduleText, date);
+      // Send daily schedule to admin and channel
+      const { generateDailySchedule } = require('./utils/schedule');
+      const { postDailyScheduleToAdmin } = require('./adminBot');
+      const { postDailyScheduleToChannel } = require('./cron/schedule');
+      const scheduleText = await generateDailySchedule(date);
+      await postDailyScheduleToAdmin(scheduleText, date);
+      await postDailyScheduleToChannel(scheduleText, date);
       
       const timeLabel = `${String(hourStart).padStart(2, '0')}:00–${String(hourEnd).padStart(2, '0')}:00`;
       const successMessage = `✅ Bron tasdiqlandi!\n\n` +
@@ -813,6 +1001,47 @@ bot.on('text', async (ctx) => {
 
       await ctx.reply('Bekor qilish turini tanlang:', {
         ...Markup.inlineKeyboard(buttons),
+        parse_mode: 'HTML'
+      });
+      return;
+    } else if (text === '⏱ Bron vaqtini almashtirish') {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const bookings = await Booking.find({
+        userId,
+        status: 'booked',
+        date: { $gte: today }
+      }).sort({ date: 1, hourStart: 1 });
+
+      if (!bookings.length) {
+        await ctx.reply('❌ Sizda kelajakdagi bronlar yo\'q, shuning uchun vaqtni almashtirib bo\'lmaydi.', {
+          parse_mode: 'HTML'
+        });
+        return;
+      }
+
+      const buttons = bookings.map((booking) => {
+        const bookingDate = new Date(booking.date);
+        const timeLabel = `${String(booking.hourStart).padStart(2, '0')}:00–${String(booking.hourEnd === 0 ? '00' : booking.hourEnd).padStart(2, '0')}:00`;
+        return [
+          Markup.button.callback(
+            `${formatDate(bookingDate)} | ${timeLabel}`,
+            `reschedule_select_${booking._id}`
+          )
+        ];
+      });
+
+      buttons.push([Markup.button.callback('🔙 Orqaga', 'back_to_week')]);
+
+      const infoText =
+        '⏱ <b>Bron vaqtini almashtirish</b>\n\n' +
+        'Bu funksiya bir kunda ichida bron qilingan vaqtni boshqa <b>bo\'sh vaqtga</b> ko\'chirish uchun ishlatiladi.\n' +
+        'Masalan: Dushanba 19:00–20:00 bronini Dushanba 20:00–21:00 ga almashtirish.\n\n' +
+        'Quyidan qaysi bron vaqtidan voz kechib, uni boshqa vaqtga ko\'chirmoqchi ekaningizni tanlang:';
+
+      await ctx.reply(infoText, {
+        reply_markup: { inline_keyboard: buttons },
         parse_mode: 'HTML'
       });
       return;

@@ -87,8 +87,9 @@ async function createMainKeyboard(currentWeekStart = new Date()) {
     
     buttons.push([Markup.button.callback(`➡️ Keyingi hafta (${nextWeekRange})`, `next_week_${nextWeekStart.toISOString().split('T')[0]}`)]);
     
-    // Add cancel reservation button
+    // Add cancel reservation and reschedule buttons
     buttons.push([Markup.button.callback('❌ Bronni bekor qilish', 'cancel_reservation')]);
+    buttons.push([Markup.button.callback('⏱ Bron vaqtini almashtirish', 'reschedule_menu')]);
     
     return Markup.inlineKeyboard(buttons);
   } catch (error) {
@@ -176,7 +177,8 @@ function createBackKeyboard() {
  */
 function createUserReplyKeyboard() {
   return Markup.keyboard([
-    ['📅 Hafta jadvali', '❌ Bronni bekor qilish']
+    ['📅 Hafta jadvali', '❌ Bronni bekor qilish'],
+    ['⏱ Bron vaqtini almashtirish']
   ]).resize().persistent();
 }
 
