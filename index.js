@@ -22,6 +22,31 @@ require('dotenv').config();
 // Initialize bot
 const bot = new Telegraf(process.env.BOT_TOKEN);
 
+// Global middleware: block access for blocked users
+bot.use(async (ctx, next) => {
+  try {
+    if (!ctx.from) return next();
+
+    const userId = ctx.from.id;
+    const user = await User.findOne({ userId });
+
+    if (user && user.isBlocked) {
+      // Short message to blocked users
+      try {
+        await ctx.reply('❌ Siz botdan foydalanishdan bloklangansiz. Iltimos, admin bilan bog\'laning.');
+      } catch (e) {
+        console.error('Error sending blocked message:', e);
+      }
+      return; // stop processing other handlers
+    }
+
+    return next();
+  } catch (error) {
+    console.error('Error in block middleware:', error);
+    return next();
+  }
+});
+
 // Store user states for cancellation flow
 const userStates = new Map();
 // Store user booking mode: 'daily' or 'weekly'
