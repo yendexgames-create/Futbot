@@ -145,6 +145,25 @@ function initAdminBot() {
           }
         );
       }
+
+      // Admin block menu
+      else if (data === 'admin_block_menu') {
+        await ctx.answerCbQuery();
+
+        const buttons = [
+          [Markup.button.callback('🚫 Bloklash', 'admin_block_action')],
+          [Markup.button.callback('✅ Blokdan chiqarish', 'admin_unblock_action')],
+          [Markup.button.callback('🔙 Orqaga', 'admin_back')]
+        ];
+
+        await ctx.editMessageText(
+          'Bloklash bo\'limi:\nQuyidagi amallardan birini tanlang:',
+          {
+            reply_markup: { inline_keyboard: buttons },
+            parse_mode: 'HTML'
+          }
+        );
+      }
       else if (data === 'admin_booking_mode_weekly') {
         adminBookingModes.set(adminChatId, 'weekly');
         await ctx.answerCbQuery('Haftalik yozdirish rejimi tanlandi.');
@@ -605,7 +624,7 @@ function initAdminBot() {
           }
         );
       }
-      
+
       // Admin set penalty for specific booking
       else if (data.startsWith('admin_set_penalty_')) {
         const bookingId = data.replace('admin_set_penalty_', '');
