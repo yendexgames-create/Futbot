@@ -16,7 +16,7 @@ const Booking = require('./models/Booking');
 const { createMainKeyboard, createTimeSlotKeyboard, createBackKeyboard, createUserReplyKeyboard } = require('./utils/keyboard');
 const { formatDate, isPastDate, isToday, getWeekStart } = require('./utils/time');
 const { initScheduler, notifyChannelBooking, notifyChannelCancellation, notifyChannelReschedule } = require('./cron/schedule');
-const { initAdminBot, notifyNewBooking, notifyCancellation, notifyLateCancellationPenalty } = require('./adminBot');
+const { initAdminBot, notifyNewBooking, notifyCancellation, notifyLateCancellationPenalty, notifyReschedule } = require('./adminBot');
 require('dotenv').config();
 
 // Initialize bot
@@ -873,11 +873,23 @@ bot.on('callback_query', async (ctx) => {
       booking.hourEnd = hourEnd;
       await booking.save();
 
+      // Load user for notifications
+      const user = await User.findOne({ userId });
+
       // Notify channel about reschedule
       try {
         await notifyChannelReschedule(bookingDate, oldHourStart, oldHourEnd, hourStart, hourEnd, userId);
       } catch (notifyError) {
         console.error('Error notifying channel about reschedule:', notifyError);
+      }
+
+      // Notify admin about reschedule
+      try {
+        if (user) {
+          await notifyReschedule(booking, user, oldHourStart, oldHourEnd);
+        }
+      } catch (adminNotifyError) {
+        console.error('Error notifying admin about reschedule:', adminNotifyError);
       }
 
       await ctx.answerCbQuery('Bron vaqti muvaffaqiyatli almashtirildi!');

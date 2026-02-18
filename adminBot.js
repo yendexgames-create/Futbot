@@ -1494,6 +1494,32 @@ async function notifyLateCancellationPenalty(booking, user, reason, paymentPromi
 }
 
 /**
+ * Notify admin when a user's booking time is rescheduled
+ */
+async function notifyReschedule(booking, user, oldHourStart, oldHourEnd) {
+  if (!adminBot || !process.env.ADMIN_CHAT_ID) return;
+
+  try {
+    const oldLabel = `${String(oldHourStart).padStart(2, '0')}:00–${String(oldHourEnd === 0 ? '00' : oldHourEnd).padStart(2, '0')}:00`;
+    const newLabel = `${String(booking.hourStart).padStart(2, '0')}:00–${String(booking.hourEnd === 0 ? '00' : booking.hourEnd).padStart(2, '0')}:00`;
+    const phone = user.phone || 'Ko\'rsatilmagan';
+    const username = user.username ? `@${user.username}` : 'Ko\'rsatilmagan';
+
+    const message = `🔄 Bron vaqti almashtirildi\n\n` +
+      `📅 Kun: ${formatDate(booking.date)}\n` +
+      `⏰ Eski vaqt: ${oldLabel}\n` +
+      `⏰ Yangi vaqt: ${newLabel}\n` +
+      `👤 Ism: ${username}\n` +
+      `📞 Telefon: ${phone}\n` +
+      `🆔 Foydalanuvchi ID: ${user.userId}`;
+
+    await adminBot.telegram.sendMessage(process.env.ADMIN_CHAT_ID, message);
+  } catch (error) {
+    console.error('❌ Error sending reschedule notification to admin:', error);
+  }
+}
+
+/**
  * Notify admin that user is ready to pay penalty
  */
 async function notifyAdminPaymentReady(booking, user) {
@@ -1548,13 +1574,13 @@ function stopAdminBot() {
 }
 
 module.exports = {
-  initAdminBot,
   getAdminBot,
+  initAdminBot,
   notifyNewBooking,
   notifyCancellation,
   notifyLateCancellationPenalty,
+  notifyReschedule,
   notifyAdminPaymentReady,
   postDailyScheduleToAdmin,
   stopAdminBot
 };
-
