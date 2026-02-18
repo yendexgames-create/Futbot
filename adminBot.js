@@ -1222,6 +1222,20 @@ function initAdminBot() {
             parse_mode: 'HTML'
           }
         );
+      } else if (text === '🚫 Bloklash') {
+        const buttons = [
+          [Markup.button.callback('🚫 Bloklash', 'admin_block_action')],
+          [Markup.button.callback('✅ Blokdan chiqarish', 'admin_unblock_action')],
+          [Markup.button.callback('🔙 Orqaga', 'admin_back')]
+        ];
+
+        await ctx.reply(
+          'Bloklash bo\'limi:\nQuyidagi amallardan birini tanlang:',
+          {
+            reply_markup: { inline_keyboard: buttons },
+            parse_mode: 'HTML'
+          }
+        );
       }
     } catch (error) {
       console.error('Error in adminBot.on("text") handler:', error);
