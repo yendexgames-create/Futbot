@@ -47,6 +47,35 @@ function initScheduler(bot, channel) {
 }
 
 /**
+ * Notify channel when an existing booking time is rescheduled
+ */
+async function notifyChannelReschedule(date, oldHourStart, oldHourEnd, newHourStart, newHourEnd, userId) {
+  if (!botInstance || !channelId) return;
+
+  try {
+    const { formatDate } = require('../utils/time');
+    const oldLabel = `${String(oldHourStart).padStart(2, '0')}:00–${String(oldHourEnd === 0 ? '00' : oldHourEnd).padStart(2, '0')}:00`;
+    const newLabel = `${String(newHourStart).padStart(2, '0')}:00–${String(newHourEnd === 0 ? '00' : newHourEnd).padStart(2, '0')}:00`;
+
+    const user = await User.findOne({ userId });
+    const maskedPhone = user && user.phone ? maskPhoneNumber(user.phone) : 'Ko\'rsatilmagan';
+
+    const message = `🔄 <b>Bron vaqti almashtirildi</b>\n\n` +
+      `📅 <b>Sana:</b> ${formatDate(date)}\n` +
+      `⏰ <b>Eski vaqt:</b> ${oldLabel}\n` +
+      `⏰ <b>Yangi vaqt:</b> ${newLabel}\n` +
+      `📞 <b>Telefon:</b> ${maskedPhone}\n\n` +
+      `━━━━━━━━━━━━━━━━━━━━`;
+
+    await botInstance.telegram.sendMessage(channelId, message, {
+      parse_mode: 'HTML'
+    });
+  } catch (error) {
+    console.error('❌ Error notifying channel about reschedule:', error);
+  }
+}
+
+/**
  * Post daily schedule to channel
  */
 async function postDailySchedule(timeOfDay = 'ertalab') {
@@ -323,6 +352,7 @@ module.exports = {
   postDailyScheduleToChannel,
   sendBookingReminders,
   notifyChannelBooking,
-  notifyChannelCancellation
+  notifyChannelCancellation,
+  notifyChannelReschedule
 };
 
