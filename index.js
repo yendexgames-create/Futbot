@@ -832,10 +832,11 @@ bot.on('callback_query', async (ctx) => {
     // Handle reschedule apply new slot
     else if (data.startsWith('reschedule_slot_')) {
       const parts = data.replace('reschedule_slot_', '').split('_');
+      // Format: reschedule_slot_<bookingId>_<YYYY-MM-DD>_<start>_<end>
       const bookingId = parts[0];
-      const dateStr = `${parts[1]}-${parts[2]}-${parts[3]}`; // from YYYY-MM-DD flattened
-      const hourStart = parseInt(parts[4]);
-      const hourEnd = parseInt(parts[5]);
+      const dateStr = parts[1];
+      const hourStart = parseInt(parts[2]);
+      const hourEnd = parseInt(parts[3]);
 
       const booking = await Booking.findById(bookingId);
 
