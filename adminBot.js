@@ -133,6 +133,151 @@ function initAdminBot() {
         );
       }
 
+      // Admin choose user to block
+      else if (data === 'admin_block_action') {
+        await ctx.answerCbQuery('Foydalanuvchilar yuklanmoqda...');
+
+        const users = await User.find({
+          phone: { $ne: null },
+          isBlocked: { $ne: true }
+        }).sort({ createdAt: -1 }).limit(50);
+
+        if (!users || users.length === 0) {
+          await ctx.editMessageText(
+            '❌ Hozircha bloklash uchun foydalanuvchilar topilmadi.',
+            {
+              reply_markup: {
+                inline_keyboard: [[
+                  Markup.button.callback('🔙 Orqaga', 'admin_block_menu')
+                ]]
+              },
+              parse_mode: 'HTML'
+            }
+          );
+          return;
+        }
+
+        const buttons = users.map(u => {
+          const label = `${u.phone || ''}${u.firstName ? ' - ' + u.firstName : ''}`.trim();
+          return [Markup.button.callback(label || `ID: ${u.userId}`, `admin_block_user_${u.userId}`)];
+        });
+
+        buttons.push([Markup.button.callback('🔙 Orqaga', 'admin_block_menu')]);
+
+        await ctx.editMessageText(
+          '🚫 Bloklash uchun foydalanuvchini tanlang:',
+          {
+            reply_markup: { inline_keyboard: buttons },
+            parse_mode: 'HTML'
+          }
+        );
+      }
+
+      // Admin choose user to unblock
+      else if (data === 'admin_unblock_action') {
+        await ctx.answerCbQuery('Foydalanuvchilar yuklanmoqda...');
+
+        const users = await User.find({
+          isBlocked: true
+        }).sort({ blockedAt: -1 }).limit(50);
+
+        if (!users || users.length === 0) {
+          await ctx.editMessageText(
+            '✅ Bloklangan foydalanuvchilar yo\'q.',
+            {
+              reply_markup: {
+                inline_keyboard: [[
+                  Markup.button.callback('🔙 Orqaga', 'admin_block_menu')
+                ]]
+              },
+              parse_mode: 'HTML'
+            }
+          );
+          return;
+        }
+
+        const buttons = users.map(u => {
+          const label = `${u.phone || ''}${u.firstName ? ' - ' + u.firstName : ''}`.trim();
+          return [Markup.button.callback(label || `ID: ${u.userId}`, `admin_unblock_user_${u.userId}`)];
+        });
+
+        buttons.push([Markup.button.callback('🔙 Orqaga', 'admin_block_menu')]);
+
+        await ctx.editMessageText(
+          '✅ Blokdan chiqarish uchun foydalanuvchini tanlang:',
+          {
+            reply_markup: { inline_keyboard: buttons },
+            parse_mode: 'HTML'
+          }
+        );
+      }
+
+      // Admin block specific user
+      else if (data.startsWith('admin_block_user_')) {
+        const targetIdStr = data.replace('admin_block_user_', '');
+        const targetId = parseInt(targetIdStr, 10);
+
+        const user = await User.findOne({ userId: targetId });
+        if (!user) {
+          await ctx.answerCbQuery('Foydalanuvchi topilmadi.');
+          return;
+        }
+
+        user.isBlocked = true;
+        user.blockedAt = new Date();
+        await user.save();
+
+        await ctx.answerCbQuery('Foydalanuvchi bloklandi.');
+
+        await ctx.editMessageText(
+          `🚫 Foydalanuvchi bloklandi.
+
+📞 Telefon: ${user.phone || 'Noma\'lum'}
+🆔 ID: ${user.userId}`,
+          {
+            reply_markup: {
+              inline_keyboard: [[
+                Markup.button.callback('⬅️ Bloklash menyusiga qaytish', 'admin_block_menu')
+              ]]
+            },
+            parse_mode: 'HTML'
+          }
+        );
+      }
+
+      // Admin unblock specific user
+      else if (data.startsWith('admin_unblock_user_')) {
+        const targetIdStr = data.replace('admin_unblock_user_', '');
+        const targetId = parseInt(targetIdStr, 10);
+
+        const user = await User.findOne({ userId: targetId });
+        if (!user) {
+          await ctx.answerCbQuery('Foydalanuvchi topilmadi.');
+          return;
+        }
+
+        user.isBlocked = false;
+        user.blockedAt = null;
+        await user.save();
+
+        await ctx.answerCbQuery('Foydalanuvchi blokdan chiqarildi.');
+
+        await ctx.editMessageText(
+          `✅ Foydalanuvchi blokdan chiqarildi.
+
+📞 Telefon: ${user.phone || 'Noma\'lum'}
+🆔 ID: ${user.userId}`,
+          {
+            reply_markup: {
+              inline_keyboard: [[
+                Markup.button.callback('⬅️ Bloklash menyusiga qaytish', 'admin_block_menu')
+              ]]
+            },
+            parse_mode: 'HTML'
+          }
+        );
+      }
+
       // Admin booking mode selection
       else if (data === 'admin_booking_mode_daily') {
         adminBookingModes.set(adminChatId, 'daily');
