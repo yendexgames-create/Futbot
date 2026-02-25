@@ -7,6 +7,32 @@ const { notifyChannelBooking } = require('./cron/schedule');
 require('dotenv').config();
 
 let adminBot = null;
+// Support multiple admin chat IDs via environment variable.
+// Example in .env:
+// ADMIN_CHAT_IDS=123456789,987654321
+// For backward compatibility, single ADMIN_CHAT_ID is also supported.
+const ADMIN_IDS = (() => {
+  const ids = [];
+  if (process.env.ADMIN_CHAT_ID) {
+    ids.push(process.env.ADMIN_CHAT_ID.toString());
+  }
+  if (process.env.ADMIN_CHAT_IDS) {
+    const extra = process.env.ADMIN_CHAT_IDS.split(',')
+      .map(id => id.trim())
+      .filter(Boolean)
+      .map(id => id.toString());
+    ids.push(...extra);
+  }
+  // Remove duplicates
+  return Array.from(new Set(ids));
+})();
+
+function isAdmin(chatId) {
+  if (!chatId) return false;
+  const idStr = chatId.toString();
+  return ADMIN_IDS.includes(idStr);
+}
+
 const adminStates = new Map(); // Store admin states for booking flow
 const adminBookingModes = new Map(); // Store admin booking mode: 'daily' or 'weekly'
 
@@ -90,7 +116,7 @@ function initAdminBot() {
   adminBot.start(async (ctx) => {
     try {
       const adminChatId = ctx.from.id.toString();
-      if (adminChatId !== process.env.ADMIN_CHAT_ID) {
+      if (!isAdmin(adminChatId)) {
         await ctx.reply('❌ Siz admin emassiz!');
         return;
       }
@@ -116,7 +142,7 @@ function initAdminBot() {
   // Handle admin callback queries
   adminBot.on('callback_query', async (ctx) => {
     const adminChatId = ctx.from.id.toString();
-    if (adminChatId !== process.env.ADMIN_CHAT_ID) {
+    if (!isAdmin(adminChatId)) {
       await ctx.answerCbQuery('Siz admin emassiz!');
       return;
     }
@@ -1173,7 +1199,7 @@ function initAdminBot() {
   adminBot.on('text', async (ctx) => {
     try {
       const adminChatId = ctx.from.id.toString();
-      if (adminChatId !== process.env.ADMIN_CHAT_ID) return;
+      if (!isAdmin(adminChatId)) return;
       
       const text = ctx.message.text;
       
