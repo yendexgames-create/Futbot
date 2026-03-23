@@ -307,12 +307,12 @@ bot.on('callback_query', async (ctx) => {
           date: { $gte: today }
         });
         const activeWeeklyCount = activeWeeklyGroups.filter(g => g !== null).length;
-        if (activeWeeklyCount >= 3) {
-          await ctx.answerCbQuery('Sizda allaqachon 3 ta haftalik bron mavjud.');
+        if (activeWeeklyCount >= 8) {
+          await ctx.answerCbQuery('Sizda allaqachon 8 ta haftalik bron mavjud.');
           const currentWeekStart = getWeekStart();
           const keyboard = await createMainKeyboard(currentWeekStart);
           await ctx.reply(
-            '❌ Siz maksimal 3 ta haftalik bron qilishingiz mumkin. Yangi haftalik bron qilishdan oldin mavjud haftalik bronlardan birini bekor qiling.',
+            '❌ Siz maksimal 8 ta haftalik bron qilishingiz mumkin. Yangi haftalik bron qilishdan oldin mavjud haftalik bronlardan birini bekor qiling.',
             keyboard
           );
           return;
@@ -367,7 +367,7 @@ bot.on('callback_query', async (ctx) => {
         `💰 Narx: 200,000 so'm`;
 
       if (booking.isWeekly) {
-        successMessage += `\n\n📆 Bu haftalik bron. Har hafta shu kuni shu vaqtda maydon siz uchun band bo'ladi (maksimal 3 ta haftalik bron).`;
+        successMessage += `\n\n📆 Bu haftalik bron. Har hafta shu kuni shu vaqtda maydon siz uchun band bo'ladi (maksimal 8 ta haftalik bron).`;
       }
       
       const currentWeekStart = getWeekStart();

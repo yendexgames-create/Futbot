@@ -1228,6 +1228,23 @@ function initAdminBot() {
         let booking;
 
         if (mode === 'weekly') {
+          // Check active weekly groups limit for admin (max 8)
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          const activeWeeklyGroups = await Booking.distinct('weeklyGroupId', {
+            userId: adminUserId,
+            isWeekly: true,
+            weeklyGroupId: { $ne: null },
+            status: 'booked',
+            date: { $gte: today }
+          });
+          const activeWeeklyCount = activeWeeklyGroups.filter(g => g !== null).length;
+          if (activeWeeklyCount >= 8) {
+            await ctx.reply('❌ Siz maksimal 8 ta haftalik bron qilishingiz mumkin. Yangi haftalik bron qilishdan oldin mavjud haftalik bronlardan birini bekor qiling.');
+            adminStates.delete(adminChatId);
+            return;
+          }
+
           const weeklyGroupId = `${adminUserId}_${Date.now()}_${hourStart}`;
           // First booking in weekly series
           booking = await Booking.create({
