@@ -43,7 +43,14 @@ function initScheduler(bot, channel) {
     timezone: 'Asia/Tashkent'
   });
   
-  console.log('✅ Cron scheduler initialized - Daily schedule at 06:00, 19:30, har 3 soatda va 30 daqiqa oldin eslatma');
+  // Schedule weekly expiry notifications daily at 09:00
+  cron.schedule('0 9 * * *', async () => {
+    await sendWeeklyExpiryNotifications();
+  }, {
+    timezone: 'Asia/Tashkent'
+  });
+  
+  console.log('✅ Cron scheduler initialized - Daily schedule at 06:00, 19:30, har 3 soatda, 30 daqiqa oldin eslatma va haftalik bron tugash xabari 09:00');
 }
 
 /**
@@ -242,6 +249,71 @@ async function postChannelSchedule() {
 }
 
 /**
+ * Send weekly booking expiry notifications (7 days before last booking)
+ */
+async function sendWeeklyExpiryNotifications() {
+  if (!botInstance) return;
+  
+  try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const notificationDate = new Date(today);
+    notificationDate.setDate(notificationDate.getDate() + 7); // 7 kun keyin
+    
+    // Get all weekly bookings that end exactly 7 days from now
+    const weeklyBookings = await Booking.find({
+      isWeekly: true,
+      weeklyGroupId: { $ne: null },
+      status: 'booked',
+      date: {
+        $gte: new Date(notificationDate.getTime()),
+        $lt: new Date(notificationDate.getTime() + 24 * 60 * 60 * 1000)
+      }
+    }).distinct('weeklyGroupId');
+    
+    for (const groupId of weeklyBookings) {
+      // Get all bookings in this weekly group
+      const groupBookings = await Booking.find({
+        weeklyGroupId: groupId,
+        status: 'booked'
+      }).sort({ date: 1 });
+      
+      if (groupBookings.length > 0) {
+        const lastBooking = groupBookings[groupBookings.length - 1];
+        const userId = Math.abs(lastBooking.userId); // Admin bronlari uchun abs
+        const timeLabel = `${String(lastBooking.hourStart).padStart(2, '0')}:00–${String(lastBooking.hourEnd).padStart(2, '0')}:00`;
+        
+        try {
+          await botInstance.telegram.sendMessage(
+            userId,
+            `⚠️ <b>HAFTALIK BRONINGIZ TUGAYDI!</b>\n\n` +
+            `📅 <b>Oxirgi bron sanasi:</b> ${formatDate(lastBooking.date)}\n` +
+            `⏰ <b>Vaqt:</b> ${timeLabel}\n\n` +
+            `📌 <b>Eslatma:</b> Sizning haftalik broningiz 7 kun ichida tugaydi.\n` +
+            `Agar davom ettirmoqchi bo'lsangiz, yangi haftalik bron qiling!\n\n` +
+            `🆕 Yangi haftalik bron qilish uchun botdan foydalaning.`,
+            {
+              parse_mode: 'HTML',
+              reply_markup: {
+                inline_keyboard: [[
+                  { text: '⚽ Yangi bron qilish', url: `https://t.me/${botInstance.botInfo.username}` }
+                ]]
+              }
+            }
+          );
+          
+          console.log(`✅ Weekly expiry notification sent to user ${userId} for group ${groupId}`);
+        } catch (error) {
+          console.error(`Error sending weekly expiry notification to user ${userId}:`, error);
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Error in sendWeeklyExpiryNotifications:', error);
+  }
+}
+
+/**
  * Send reminders 30 minutes before booking time
  */
 async function sendBookingReminders() {
@@ -351,6 +423,7 @@ module.exports = {
   postChannelSchedule,
   postDailyScheduleToChannel,
   sendBookingReminders,
+  sendWeeklyExpiryNotifications,
   notifyChannelBooking,
   notifyChannelCancellation,
   notifyChannelReschedule
