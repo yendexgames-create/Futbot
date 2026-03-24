@@ -9,7 +9,7 @@ function getWeekStart(date = new Date()) {
   const d = new Date(date);
   const day = d.getDay();
   const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Adjust when day is Sunday
-  return new Date(d.getFullYear(), d.getMonth(), diff);
+  return new Date(d.setDate(diff));
 }
 
 /**
@@ -17,7 +17,9 @@ function getWeekStart(date = new Date()) {
  */
 function getWeekEnd(date = new Date()) {
   const weekStart = getWeekStart(date);
-  return new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate() + 6);
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekEnd.getDate() + 6);
+  return weekEnd;
 }
 
 /**
@@ -28,10 +30,9 @@ function getWeekDays(date = new Date()) {
   const days = [];
   
   for (let i = 0; i < 7; i++) {
-    // Create new date for each day to avoid reference issues
     const day = new Date(weekStart);
-    day.setDate(weekStart.getDate() + i);
-    days.push(new Date(day));
+    day.setDate(day.getDate() + i);
+    days.push(day);
   }
   
   return days;

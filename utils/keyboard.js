@@ -114,37 +114,18 @@ async function createTimeSlotKeyboard(date) {
     const timeSlots = getTimeSlots();
     const buttons = [];
     
-    // Get bookings for this date - better timezone handling
+    // Get bookings for this date
     const dateStart = new Date(date);
     dateStart.setHours(0, 0, 0, 0);
     const dateEnd = new Date(date);
     dateEnd.setHours(23, 59, 59, 999);
     
-    // Get target date components for comparison
-    const targetYear = date.getFullYear();
-    const targetMonth = date.getMonth();
-    const targetDay = date.getDate();
-    
-    // Find all bookings and filter by local date (not UTC)
-    const allBookings = await Booking.find({
-      status: 'booked',
-      date: { $gte: dateStart, $lte: dateEnd }
+    const bookings = await Booking.find({
+      date: { $gte: dateStart, $lte: dateEnd },
+      status: 'booked'
     });
-    
-    // Filter bookings by local date (handle timezone issues)
-    const bookings = allBookings.filter(booking => {
-      const bookingDate = new Date(booking.date);
-      return bookingDate.getFullYear() === targetYear &&
-             bookingDate.getMonth() === targetMonth &&
-             bookingDate.getDate() === targetDay;
-    });
-    
-    console.log(`🔍 Debug for date ${dateKey}: Found ${bookings.length} bookings`);
-    console.log(`🔍 All bookings in range: ${allBookings.length}`);
-    console.log(`🔍 Target date: ${targetYear}-${targetMonth + 1}-${targetDay}`);
     
     const bookedHours = new Set(bookings.map(b => b.hourStart));
-    console.log(`🔍 Booked hours:`, Array.from(bookedHours));
     
     // Create time slot buttons
     for (const slot of timeSlots) {
