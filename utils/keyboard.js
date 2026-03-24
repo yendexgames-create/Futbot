@@ -140,13 +140,14 @@ async function createTimeSlotKeyboard(date) {
     const bookedHours = new Set(bookings.map(b => b.hourStart));
     
     // Create time slot buttons
+    // Use local date for key (not UTC)
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const dayNum = String(date.getDate()).padStart(2, '0');
+    const dateKey = `${year}-${month}-${dayNum}`;
+    
     for (const slot of timeSlots) {
       const isBooked = bookedHours.has(slot.start);
-      // Use local date for key (not UTC)
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const dayNum = String(date.getDate()).padStart(2, '0');
-      const dateKey = `${year}-${month}-${dayNum}`;
       
       if (isBooked) {
         buttons.push([Markup.button.callback(`❌ ${slot.label} (Band)`, `slot_booked_${dateKey}_${slot.start}`)]);
