@@ -41,11 +41,9 @@ function createAdminDateKeyboard(prefix = 'admin_date_') {
     day.setDate(day.getDate() + i);
     const dateKey = day.toISOString().split('T')[0];
     const dayName = formatDateShort(day);
-    const dayNames = ['Yak', 'Dush', 'Sesh', 'Chor', 'Pay', 'Jum', 'Shan'];
-    const dayLabel = dayNames[day.getDay()];
     
     buttons.push([Markup.button.callback(
-      `${dayLabel} ${dayName}`,
+      `${dayName}`,
       `${prefix}${dateKey}`
     )]);
   }
