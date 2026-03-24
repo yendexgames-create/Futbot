@@ -1180,6 +1180,14 @@ process.once('SIGTERM', () => {
 // Start bot
 bot.launch().then(() => {
   console.log('✅ Main bot started');
+  
+  // Start monitoring bot
+  try {
+    require('./monitoringBot');
+    console.log('✅ Monitoring bot started');
+  } catch (error) {
+    console.error('❌ Error starting monitoring bot:', error);
+  }
 }).catch((error) => {
   console.error('❌ Error starting bot:', error);
   process.exit(1);

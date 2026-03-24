@@ -4,6 +4,7 @@ const { createAdminReplyKeyboard, createAdminDateKeyboard, createAdminTimeKeyboa
 const Booking = require('./models/Booking');
 const User = require('./models/User');
 const { notifyChannelBooking } = require('./cron/schedule');
+const { sendBookingNotification, sendCancellationNotification } = require('./monitoringBot');
 require('dotenv').config();
 
 let adminBot = null;
@@ -626,6 +627,9 @@ function initAdminBot() {
 
         const { notifyChannelCancellation } = require('./cron/schedule');
 
+        const adminInfo = ctx.from;
+        const adminName = adminInfo.first_name || adminInfo.username || 'Admin';
+
         for (const booking of bookings) {
           booking.status = 'cancelled';
           booking.cancelTime = new Date();
@@ -635,6 +639,20 @@ function initAdminBot() {
             await notifyChannelCancellation(booking.date, booking.hourStart, booking.hourEnd);
           } catch (notifyError) {
             console.error('Error notifying channel for weekly admin cancellation:', notifyError);
+          }
+
+          // Notify monitoring bot for each cancelled booking
+          const user = await User.findOne({ userId: booking.userId });
+          const bookingInfo = {
+            date: formatDate(booking.date),
+            time: `${String(booking.hourStart).padStart(2, '0')}:00–${String(booking.hourEnd === 0 ? '00' : booking.hourEnd).padStart(2, '0')}:00`,
+            phone: user ? user.phone : 'Noma\'lum'
+          };
+          
+          try {
+            await sendCancellationNotification(adminChatId, bookingInfo, adminName, 'Haftalik bron bekor qilindi');
+          } catch (error) {
+            console.error('Error sending to monitoring bot:', error);
           }
         }
 
@@ -667,6 +685,21 @@ function initAdminBot() {
         const user = await User.findOne({ userId: booking.userId });
         const { notifyChannelCancellation } = require('./cron/schedule');
         await notifyChannelCancellation(booking.date, booking.hourStart, booking.hourEnd);
+        
+        // Notify monitoring bot
+        const adminInfo = ctx.from;
+        const adminName = adminInfo.first_name || adminInfo.username || 'Admin';
+        const bookingInfo = {
+          date: formatDate(booking.date),
+          time: `${String(booking.hourStart).padStart(2, '0')}:00–${String(booking.hourEnd === 0 ? '00' : booking.hourEnd).padStart(2, '0')}:00`,
+          phone: user ? user.phone : 'Noma\'lum'
+        };
+        
+        try {
+          await sendCancellationNotification(adminChatId, bookingInfo, adminName, 'Admin tomonidan bekor qilindi');
+        } catch (error) {
+          console.error('Error sending to monitoring bot:', error);
+        }
         
         const timeLabel = `${String(booking.hourStart).padStart(2, '0')}:00–${String(booking.hourEnd).padStart(2, '0')}:00`;
         await ctx.answerCbQuery('Bron bekor qilindi!');
@@ -1292,6 +1325,21 @@ function initAdminBot() {
         // Notify channel (pass name as userName, phone will be fetched in notifyChannelBooking)
         await notifyChannelBooking(date, hourStart, hourEnd, adminUserId, name || phone || '');
         
+        // Notify monitoring bot
+        const adminInfo = ctx.from;
+        const adminName = adminInfo.first_name || adminInfo.username || 'Admin';
+        const bookingInfo = {
+          date: formatDate(date),
+          time: `${String(hourStart).padStart(2, '0')}:00–${String(hourEnd === 0 ? '00' : hourEnd).padStart(2, '0')}:00`,
+          phone: phone
+        };
+        
+        try {
+          await sendBookingNotification(adminChatId, bookingInfo, adminName);
+        } catch (error) {
+          console.error('Error sending to monitoring bot:', error);
+        }
+        
         const timeLabel = `${String(hourStart).padStart(2, '0')}:00–${String(hourEnd === 0 ? '00' : hourEnd).padStart(2, '0')}:00`;
         
         let successMessage = `✅ <b>Bron muvaffaqiyatli qilindi!</b>\n\n` +
@@ -1563,6 +1611,39 @@ async function notifyReschedule(booking, user, oldHourStart, oldHourEnd) {
 }
 
 /**
+ * Notify admin about weekly booking expiry
+ */
+async function notifyAdminWeeklyExpiry(booking, user) {
+  if (!adminBot || !process.env.ADMIN_CHAT_ID) return;
+  
+  try {
+    const timeLabel = `${String(booking.hourStart).padStart(2, '0')}:00–${String(booking.hourEnd).padStart(2, '0')}:00`;
+    const phone = user.phone || 'Ko\'rsatilmagan';
+    const username = user.username ? `@${user.username}` : 'Ko\'rsatilmagan';
+    const userName = user.firstName || phone || 'Noma\'lum';
+    
+    const message = `⚠️ <b>HAFTALIK BRON TUGAYDI!</b>\n\n` +
+      `━━━━━━━━━━━━━━━━━━━━\n\n` +
+      `👤 <b>Foydalanuvchi:</b> ${userName}\n` +
+      `${username !== 'Ko\'rsatilmagan' ? `📱 <b>Username:</b> ${username}\n` : ''}` +
+      `📞 <b>Telefon:</b> ${phone}\n` +
+      `🆔 <b>User ID:</b> ${user.userId}\n\n` +
+      `📅 <b>Oxirgi bron sanasi:</b> ${formatDate(booking.date)}\n` +
+      `⏰ <b>Vaqt:</b> ${timeLabel}\n\n` +
+      `━━━━━━━━━━━━━━━━━━━━\n\n` +
+      `📌 <b>Eslatma:</b> Bu foydalanuvchining haftalik broni 7 kun ichida tugaydi.\n` +
+      `Foydalanuvchiga ogohlantirish xabari yuborildi.\n\n` +
+      `🆕 <b>Tavsiya:</b> Foydalanuvchi bilan bog'lanib yangi haftalik bron taklif qiling!`;
+    
+    await adminBot.telegram.sendMessage(process.env.ADMIN_CHAT_ID, message, {
+      parse_mode: 'HTML'
+    });
+  } catch (error) {
+    console.error('❌ Error sending weekly expiry notification to admin:', error);
+  }
+}
+
+/**
  * Notify admin that user is ready to pay penalty
  */
 async function notifyAdminPaymentReady(booking, user) {
@@ -1624,6 +1705,7 @@ module.exports = {
   notifyLateCancellationPenalty,
   notifyReschedule,
   notifyAdminPaymentReady,
+  notifyAdminWeeklyExpiry,
   postDailyScheduleToAdmin,
   stopAdminBot
 };

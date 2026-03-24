@@ -302,6 +302,13 @@ async function sendWeeklyExpiryNotifications() {
             }
           );
           
+          // Notify admin about weekly expiry
+          const user = await User.findOne({ userId });
+          if (user) {
+            const { notifyAdminWeeklyExpiry } = require('../adminBot');
+            await notifyAdminWeeklyExpiry(lastBooking, user);
+          }
+          
           console.log(`✅ Weekly expiry notification sent to user ${userId} for group ${groupId}`);
         } catch (error) {
           console.error(`Error sending weekly expiry notification to user ${userId}:`, error);
