@@ -68,14 +68,12 @@ async function createMainKeyboard(currentWeekStart = new Date()) {
     }
     
     // Add previous and next week navigation buttons
-    const prevWeekStart = new Date(currentWeekStart);
-    prevWeekStart.setDate(prevWeekStart.getDate() - 7);
+    const prevWeekStart = new Date(currentWeekStart.getFullYear(), currentWeekStart.getMonth(), currentWeekStart.getDate() - 7);
     const prevWeekEnd = new Date(prevWeekStart);
     prevWeekEnd.setDate(prevWeekEnd.getDate() + 6);
     const prevWeekRange = formatWeekRange(prevWeekStart, prevWeekEnd);
     
-    const nextWeekStart = new Date(currentWeekStart);
-    nextWeekStart.setDate(nextWeekStart.getDate() + 7);
+    const nextWeekStart = new Date(currentWeekStart.getFullYear(), currentWeekStart.getMonth(), currentWeekStart.getDate() + 7);
     const nextWeekEnd = new Date(nextWeekStart);
     nextWeekEnd.setDate(nextWeekEnd.getDate() + 6);
     const nextWeekRange = formatWeekRange(nextWeekStart, nextWeekEnd);
