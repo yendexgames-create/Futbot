@@ -357,7 +357,7 @@ function initAdminBot() {
         
         await ctx.answerCbQuery();
         await ctx.editMessageText(
-          `📅 <b>Sana:</b> ${formatDate(selectedDate)}\n\n` +
+          `📅 <b>Sana:</b> ${formatDateShort(selectedDate)}\n\n` +
           `⏰ <b>Vaqtni tanlang:</b>`,
           {
             ...createAdminTimeKeyboard(dateStr),
