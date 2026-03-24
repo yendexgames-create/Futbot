@@ -68,12 +68,14 @@ async function createMainKeyboard(currentWeekStart = new Date()) {
     }
     
     // Add previous and next week navigation buttons
-    const prevWeekStart = new Date(currentWeekStart.getFullYear(), currentWeekStart.getMonth(), currentWeekStart.getDate() - 7);
+    const prevWeekStart = new Date(currentWeekStart);
+    prevWeekStart.setDate(prevWeekStart.getDate() - 7);
     const prevWeekEnd = new Date(prevWeekStart);
     prevWeekEnd.setDate(prevWeekEnd.getDate() + 6);
     const prevWeekRange = formatWeekRange(prevWeekStart, prevWeekEnd);
     
-    const nextWeekStart = new Date(currentWeekStart.getFullYear(), currentWeekStart.getMonth(), currentWeekStart.getDate() + 7);
+    const nextWeekStart = new Date(currentWeekStart);
+    nextWeekStart.setDate(nextWeekStart.getDate() + 7);
     const nextWeekEnd = new Date(nextWeekStart);
     nextWeekEnd.setDate(nextWeekEnd.getDate() + 6);
     const nextWeekRange = formatWeekRange(nextWeekStart, nextWeekEnd);
@@ -137,17 +139,21 @@ async function createTimeSlotKeyboard(date) {
              bookingDate.getDate() === targetDay;
     });
     
+    console.log(`🔍 Debug for date ${dateKey}: Found ${bookings.length} bookings`);
+    console.log(`🔍 All bookings in range: ${allBookings.length}`);
+    console.log(`🔍 Target date: ${targetYear}-${targetMonth + 1}-${targetDay}`);
+    
     const bookedHours = new Set(bookings.map(b => b.hourStart));
+    console.log(`🔍 Booked hours:`, Array.from(bookedHours));
     
     // Create time slot buttons
-    // Use local date for key (not UTC)
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const dayNum = String(date.getDate()).padStart(2, '0');
-    const dateKey = `${year}-${month}-${dayNum}`;
-    
     for (const slot of timeSlots) {
       const isBooked = bookedHours.has(slot.start);
+      // Use local date for key (not UTC)
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const dayNum = String(date.getDate()).padStart(2, '0');
+      const dateKey = `${year}-${month}-${dayNum}`;
       
       if (isBooked) {
         buttons.push([Markup.button.callback(`❌ ${slot.label} (Band)`, `slot_booked_${dateKey}_${slot.start}`)]);

@@ -134,41 +134,35 @@ async function createWeeklyBookings(userId, firstDate, hourStart, hourEnd, weekl
   const endDate = new Date(startDate);
   endDate.setDate(endDate.getDate() + 30);
 
-  // Create a copy for iteration to avoid reference issues
-  let currentDate = new Date(startDate);
-  
-  while (currentDate <= endDate) {
+  for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 7)) {
+    const date = new Date(d);
+
     // Skip past dates just in case
-    if (isPastDate(currentDate)) {
-      // Move to next week
-      currentDate = new Date(currentDate);
-      currentDate.setDate(currentDate.getDate() + 7);
+    if (isPastDate(date)) {
       continue;
     }
 
     // Check if slot is already booked
     const existingBooking = await Booking.findOne({
       userId,
-      date: { $gte: currentDate, $lt: new Date(currentDate.getTime() + 24 * 60 * 60 * 1000) },
+      date: { $gte: date, $lt: new Date(date.getTime() + 24 * 60 * 60 * 1000) },
       hourStart,
       status: 'booked'
     });
 
-    if (!existingBooking) {
-      await Booking.create({
-        userId,
-        date: new Date(currentDate), // Create new date object
-        hourStart,
-        hourEnd,
-        status: 'booked',
-        isWeekly: true,
-        weeklyGroupId
-      });
+    if (existingBooking) {
+      continue;
     }
-    
-    // Move to next week
-    currentDate = new Date(currentDate);
-    currentDate.setDate(currentDate.getDate() + 7);
+
+    await Booking.create({
+      userId,
+      date,
+      hourStart,
+      hourEnd,
+      status: 'booked',
+      isWeekly: true,
+      weeklyGroupId
+    });
   }
 }
 
@@ -302,7 +296,7 @@ bot.on('callback_query', async (ctx) => {
       const mode = getUserBookingMode(userId);
       let booking;
       if (mode === 'weekly') {
-        // Check active weekly groups limit (max 8)
+        // Check active weekly groups limit (max 3)
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         const activeWeeklyGroups = await Booking.distinct('weeklyGroupId', {
@@ -335,6 +329,15 @@ bot.on('callback_query', async (ctx) => {
           isWeekly: true,
           weeklyGroupId
         });
+        
+        console.log(`🔍 Weekly booking created:`, {
+          userId,
+          date: selectedDate,
+          dateStr: selectedDate.toISOString(),
+          hourStart,
+          hourEnd,
+          weeklyGroupId
+        });
 
         // Create future weekly bookings (no additional notifications)
         await createWeeklyBookings(userId, selectedDate, hourStart, hourEnd, weeklyGroupId);
@@ -346,6 +349,14 @@ bot.on('callback_query', async (ctx) => {
           hourStart,
           hourEnd,
           status: 'booked'
+        });
+        
+        console.log(`🔍 Daily booking created:`, {
+          userId,
+          date: selectedDate,
+          dateStr: selectedDate.toISOString(),
+          hourStart,
+          hourEnd
         });
       }
       
@@ -958,51 +969,13 @@ bot.on('contact', async (ctx) => {
       }
       
       // Create booking
-      const mode = getUserBookingMode(userId);
-      let booking;
-      
-      if (mode === 'weekly') {
-        // Check active weekly groups limit (max 8)
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const activeWeeklyGroups = await Booking.distinct('weeklyGroupId', {
-          userId,
-          isWeekly: true,
-          weeklyGroupId: { $ne: null },
-          status: 'booked',
-          date: { $gte: today }
-        });
-        const activeWeeklyCount = activeWeeklyGroups.filter(g => g !== null).length;
-        if (activeWeeklyCount >= 8) {
-          await ctx.reply('❌ Siz maksimal 8 ta haftalik bron qilishingiz mumkin. Yangi haftalik bron qilishdan oldin mavjud haftalik bronlardan birini bekor qiling.');
-          userStates.delete(userId);
-          return;
-        }
-
-        const weeklyGroupId = `${userId}_${Date.now()}_${hourStart}`;
-        // Create first booking as part of weekly series
-        booking = await Booking.create({
-          userId,
-          date,
-          hourStart,
-          hourEnd,
-          status: 'booked',
-          isWeekly: true,
-          weeklyGroupId
-        });
-
-        // Create future weekly bookings (no additional notifications)
-        await createWeeklyBookings(userId, date, hourStart, hourEnd, weeklyGroupId);
-      } else {
-        // Create single (daily) booking
-        booking = await Booking.create({
-          userId,
-          date,
-          hourStart,
-          hourEnd,
-          status: 'booked'
-        });
-      }
+      const booking = await Booking.create({
+        userId,
+        date,
+        hourStart,
+        hourEnd,
+        status: 'booked'
+      });
       
       const user = await User.findOne({ userId });
       
@@ -1021,14 +994,10 @@ bot.on('contact', async (ctx) => {
       await postDailyScheduleToChannel(scheduleText, date);
       
       const timeLabel = `${String(hourStart).padStart(2, '0')}:00–${String(hourEnd).padStart(2, '0')}:00`;
-      let successMessage = `✅ Bron tasdiqlandi!\n\n` +
+      const successMessage = `✅ Bron tasdiqlandi!\n\n` +
         `📅 Sana: ${formatDate(date)}\n` +
         `⏰ Vaqt: ${timeLabel}\n` +
         `💰 Narx: 200,000 so'm`;
-
-      if (booking.isWeekly) {
-        successMessage += `\n\n📆 Bu haftalik bron. Har hafta shu kuni shu vaqtda maydon siz uchun band bo'ladi (maksimal 8 ta haftalik bron).`;
-      }
       
       const currentWeekStart = getWeekStart();
       const keyboard = await createMainKeyboard(currentWeekStart);

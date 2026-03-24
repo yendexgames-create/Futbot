@@ -280,7 +280,7 @@ async function sendWeeklyExpiryNotifications() {
       
       if (groupBookings.length > 0) {
         const lastBooking = groupBookings[groupBookings.length - 1];
-        const userId = lastBooking.userId; // Endi admin userId ham musbat
+        const userId = Math.abs(lastBooking.userId); // Admin bronlari uchun abs
         const timeLabel = `${String(lastBooking.hourStart).padStart(2, '0')}:00–${String(lastBooking.hourEnd).padStart(2, '0')}:00`;
         
         try {
