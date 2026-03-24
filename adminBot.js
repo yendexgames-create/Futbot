@@ -360,7 +360,7 @@ function initAdminBot() {
           `📅 <b>Sana:</b> ${formatDate(selectedDate)}\n\n` +
           `⏰ <b>Vaqtni tanlang:</b>`,
           {
-            ...createAdminTimeKeyboard(dateStr),
+            ...(await createAdminTimeKeyboard(dateStr)),
             parse_mode: 'HTML'
           }
         );
@@ -385,7 +385,12 @@ function initAdminBot() {
         });
         
         if (existingBooking) {
-          await ctx.answerCbQuery('Bu vaqt allaqachon band!');
+          // Get user info for better error message
+          const user = await User.findOne({ userId: existingBooking.userId });
+          const userName = user ? (user.firstName || user.phone || 'Noma\'lum') : 'Noma\'lum';
+          const userPhone = user && user.phone ? ` (${user.phone})` : '';
+          
+          await ctx.answerCbQuery(`Bu vaqt allaqachon ${userName}${userPhone} tomonidan band qilingan!`);
           return;
         }
         
