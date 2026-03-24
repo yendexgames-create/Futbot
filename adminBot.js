@@ -151,12 +151,17 @@ function initAdminBot() {
     const data = ctx.callbackQuery.data;
     
     try {
-      // Admin book button -> choose booking mode first
+      // Admin book button -> temporarily disabled
       if (data === 'admin_book') {
         await ctx.answerCbQuery();
         await ctx.editMessageText(
-          'Bron turini tanlang:',
-          getAdminBookingModeKeyboard()
+          '🚫 <b>Stadion yozdirish vaqtincha bloklangan!</b>\n\n' +
+          'Stadion yozdirish funksiyasi hozircha mavjud emas.\n' +
+          'Boshqa funksiyalardan foydalanishingiz mumkin.',
+          {
+            ...createAdminReplyKeyboard(),
+            parse_mode: 'HTML'
+          }
         );
       }
 
@@ -1364,8 +1369,13 @@ function initAdminBot() {
       }
       
       // Handle Reply Keyboard buttons
-      if (text === '📝📝📝 STADIONI YOZDIRISH 📝📝📝' || text === '📝 Stadioni yozdirish') {
-        await ctx.reply('Bron turini tanlang:', getAdminBookingModeKeyboard());
+      if (text === '� STADIONI YOZDIRISH (BLOKLANGAN)' || text === '�📝📝📝 STADIONI YOZDIRISH 📝📝📝' || text === '📝 Stadioni yozdirish') {
+        await ctx.reply(
+          '🚫 <b>Stadion yozdirish vaqtincha bloklangan!</b>\n\n' +
+          'Stadion yozdirish funksiyasi hozircha mavjud emas.\n' +
+          'Boshqa funksiyalardan foydalanishingiz mumkin.',
+          { parse_mode: 'HTML' }
+        );
       } else if (text === '📊 Joylarni ko\'rish') {
         const weekStart = getWeekStart();
         const schedule = await getWeekScheduleExcludingPast(weekStart);
