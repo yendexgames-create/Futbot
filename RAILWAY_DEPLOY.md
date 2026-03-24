@@ -1,11 +1,11 @@
-# Railway Deployment Guide
+# Railway Deployment Guide (TOML faylsiz)
 
 ## 🚀 Railway ga ulash qadamlari:
 
 ### 1. **GitHub ga yuklash:**
 ```bash
 git add .
-git commit -m "Add monitoring bot and railway config"
+git commit -m "Add monitoring bot and fix railway config"
 git push origin main
 ```
 
@@ -14,7 +14,7 @@ git push origin main
 2. "New Project" → "Deploy from GitHub repo"
 3. O'z repositoryingizni tanlang
 
-### 3. **Environment Variables:**
+### 3. **Environment Variables (MUHIM!):**
 Railway project settings → Variables → quyidagilarni qo'shing:
 
 ```
@@ -26,6 +26,7 @@ ADMIN_CHAT_ID=your_admin_chat_id
 CHANNEL_ID=@your_channel
 MONGODB_URI=your_mongodb_uri
 TZ=Asia/Tashkent
+NODE_ENV=production
 ```
 
 ### 4. **Start Command:**
@@ -55,8 +56,17 @@ Railway → Logs → real-time monitoring
 - Monitoring bot tokeni to'g'ri bo'lishi kerak
 - Admin Chat ID to'g'ri bo'lishi kerak
 
+### 4. **Port muammosi:**
+Telegram botlar uchun port kerak emas, Railway avtomatik hal qiladi
+
 ## 🎯 **Test qilish:**
 1. Railway da deploy qiling
 2. Loglarni tekshiring ("✅ Main bot started", "✅ Monitoring bot started")
 3. Admin botdan bron qiling
 4. Monitoring botdan xabar kelishini tekshiring
+
+## 📋 **Muhim eslatmalar:**
+- ❌ **railway.toml fayli kerak emas**
+- ✅ **Environment Variables muhim**
+- ✅ **Package.json da "start": "node index.js" kerak**
+- ✅ **Monitoring bot index.js ichida chaqiriladi**
