@@ -58,49 +58,16 @@ function createAdminDateKeyboard(prefix = 'admin_date_') {
 /**
  * Create time slot keyboard for admin booking
  */
-async function createAdminTimeKeyboard(date) {
+function createAdminTimeKeyboard(date) {
   const { getTimeSlots } = require('./time');
   const timeSlots = getTimeSlots();
   
-  // Check which slots are already booked
-  const dateStart = new Date(date);
-  dateStart.setHours(0, 0, 0, 0);
-  const dateEnd = new Date(date);
-  dateEnd.setHours(23, 59, 59, 999);
-  
-  // Get target date components for comparison
-  const targetYear = dateStart.getFullYear();
-  const targetMonth = dateStart.getMonth();
-  const targetDay = dateStart.getDate();
-  
-  // Find all bookings and filter by local date
-  const allBookings = await Booking.find({
-    status: 'booked',
-    date: { $gte: dateStart, $lte: dateEnd }
-  });
-  
-  // Filter bookings by local date (handle timezone issues)
-  const bookings = allBookings.filter(booking => {
-    const bookingDate = new Date(booking.date);
-    return bookingDate.getFullYear() === targetYear &&
-           bookingDate.getMonth() === targetMonth &&
-           bookingDate.getDate() === targetDay;
-  });
-  
-  const bookedHours = new Set(bookings.map(b => b.hourStart));
-  
-  const buttons = timeSlots.map(slot => {
-    const isBooked = bookedHours.has(slot.start);
-    const emoji = isBooked ? '🔴' : '🟢';
-    const label = isBooked ? `${slot.label} - Band` : slot.label;
-    
-    return [
-      Markup.button.callback(
-        `${emoji} ${label}`,
-        `admin_time_${date}_${slot.start}_${slot.end}`
-      )
-    ];
-  });
+  const buttons = timeSlots.map(slot => [
+    Markup.button.callback(
+      `🟢 ${slot.label}`,
+      `admin_time_${date}_${slot.start}_${slot.end}`
+    )
+  ]);
   
   buttons.push([Markup.button.callback('🔙 Orqaga', 'admin_back')]);
   
