@@ -61,37 +61,43 @@ async function createWeeklyBookingsForAdmin(userId, firstDate, hourStart, hourEn
   const endDate = new Date(startDate);
   endDate.setDate(endDate.getDate() + 30);
 
-  for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 7)) {
-    const date = new Date(d);
-
+  // Create a copy for iteration to avoid reference issues
+  let currentDate = new Date(startDate);
+  
+  while (currentDate <= endDate) {
     // Skip past dates just in case
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    if (date < today) {
+    if (currentDate < today) {
+      // Move to next week
+      currentDate = new Date(currentDate);
+      currentDate.setDate(currentDate.getDate() + 7);
       continue;
     }
 
     // Check if slot is already booked
     const existingBooking = await Booking.findOne({
       userId,
-      date: { $gte: date, $lt: new Date(date.getTime() + 24 * 60 * 60 * 1000) },
+      date: { $gte: currentDate, $lt: new Date(currentDate.getTime() + 24 * 60 * 60 * 1000) },
       hourStart,
       status: 'booked'
     });
 
-    if (existingBooking) {
-      continue;
+    if (!existingBooking) {
+      await Booking.create({
+        userId,
+        date: new Date(currentDate), // Create new date object
+        hourStart,
+        hourEnd,
+        status: 'booked',
+        isWeekly: true,
+        weeklyGroupId
+      });
     }
-
-    await Booking.create({
-      userId,
-      date,
-      hourStart,
-      hourEnd,
-      status: 'booked',
-      isWeekly: true,
-      weeklyGroupId
-    });
+    
+    // Move to next week
+    currentDate = new Date(currentDate);
+    currentDate.setDate(currentDate.getDate() + 7);
   }
 }
 
@@ -1261,8 +1267,8 @@ function initAdminBot() {
           return;
         }
         
-        // Create booking with special userId (negative for admin bookings)
-        const adminUserId = -Math.abs(parseInt(adminChatId));
+        // Create booking with admin userId (positive for admin bookings)
+        const adminUserId = parseInt(adminChatId);
         let booking;
 
         if (mode === 'weekly') {

@@ -139,12 +139,7 @@ async function createTimeSlotKeyboard(date) {
              bookingDate.getDate() === targetDay;
     });
     
-    console.log(`🔍 Debug for date ${dateKey}: Found ${bookings.length} bookings`);
-    console.log(`🔍 All bookings in range: ${allBookings.length}`);
-    console.log(`🔍 Target date: ${targetYear}-${targetMonth + 1}-${targetDay}`);
-    
     const bookedHours = new Set(bookings.map(b => b.hourStart));
-    console.log(`🔍 Booked hours:`, Array.from(bookedHours));
     
     // Create time slot buttons
     for (const slot of timeSlots) {
