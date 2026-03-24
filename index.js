@@ -329,6 +329,15 @@ bot.on('callback_query', async (ctx) => {
           isWeekly: true,
           weeklyGroupId
         });
+        
+        console.log(`🔍 Weekly booking created:`, {
+          userId,
+          date: selectedDate,
+          dateStr: selectedDate.toISOString(),
+          hourStart,
+          hourEnd,
+          weeklyGroupId
+        });
 
         // Create future weekly bookings (no additional notifications)
         await createWeeklyBookings(userId, selectedDate, hourStart, hourEnd, weeklyGroupId);
@@ -340,6 +349,14 @@ bot.on('callback_query', async (ctx) => {
           hourStart,
           hourEnd,
           status: 'booked'
+        });
+        
+        console.log(`🔍 Daily booking created:`, {
+          userId,
+          date: selectedDate,
+          dateStr: selectedDate.toISOString(),
+          hourStart,
+          hourEnd
         });
       }
       
