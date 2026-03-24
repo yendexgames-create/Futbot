@@ -2,10 +2,10 @@ const { Telegraf, Markup } = require('telegraf');
 require('dotenv').config();
 
 // Monitoring bot initialization
-const monitoringBot = new Telegraf('8799404582:AAHp8PWKH7vMbSn_LSms5tenhcpTKHt3oCQ');
+const monitoringBot = new Telegraf(process.env.MONITORING_BOT_TOKEN || '8799404582:AAHp8PWKH7vMbSn_LSms5tenhcpTKHt3oCQ');
 
 // Allowed admin ID (only you can use this bot)
-const ADMIN_CHAT_ID = '7386008809';
+const ADMIN_CHAT_ID = process.env.MONITORING_ADMIN_CHAT_ID || '7386008809';
 
 // Check if user is admin
 function isAdmin(chatId) {
