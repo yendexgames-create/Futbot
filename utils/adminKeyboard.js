@@ -8,7 +8,6 @@ const User = require('../models/User');
  */
 function createAdminMainKeyboard() {
   return Markup.inlineKeyboard([
-    [Markup.button.callback('� STADIONI YOZDIRISH (BLOKLANGAN)', 'admin_book')],
     [Markup.button.callback('📊 Joylarni ko\'rish', 'admin_view_schedule')],
     [Markup.button.callback('❌ Bronlarni bekor qilish', 'admin_cancel_booking')],
     [Markup.button.callback('💰 Jarima belgilash', 'admin_penalty')],
@@ -21,7 +20,6 @@ function createAdminMainKeyboard() {
  */
 function createAdminReplyKeyboard() {
   return Markup.keyboard([
-    ['� STADIONI YOZDIRISH (BLOKLANGAN)'],
     ['📊 Joylarni ko\'rish', '❌ Bronlarni bekor qilish'],
     ['💰 Jarima belgilash', '🚫 Bloklash']
   ]).resize().persistent();
