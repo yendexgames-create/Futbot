@@ -381,7 +381,7 @@ async function sendCancellationNotification(chatId, bookingInfo, adminName, reas
   } catch (error) {
     console.error('❌ Error sending cancellation notification:', error);
   }
-});
+}
 
 // Handle text messages for booking input
 monitoringBot.on('text', async (ctx) => {
