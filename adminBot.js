@@ -1,20 +1,11 @@
 const { Telegraf, Markup } = require('telegraf');
 const { formatDate, getWeekStart } = require('./utils/time');
-const { createAdminReplyKeyboard, createAdminDateKeyboard, createAdminTimeKeyboard, createWeekDayKeyboard, getWeekSchedule, getWeekScheduleExcludingPast } = require('./utils/adminKeyboard');
+const { createAdminReplyKeyboard, createAdminDateKeyboard, createAdminTimeKeyboard, getWeekSchedule, getWeekScheduleExcludingPast } = require('./utils/adminKeyboard');
 const Booking = require('./models/Booking');
 const User = require('./models/User');
 const { notifyChannelBooking } = require('./cron/schedule');
+const { sendBookingNotification, sendCancellationNotification } = require('./monitoringBot');
 require('dotenv').config();
-
-// Import monitoring functions dynamically
-let sendBookingNotification, sendCancellationNotification;
-try {
-  const monitoringBot = require('./monitoringBot');
-  sendBookingNotification = monitoringBot.sendBookingNotification;
-  sendCancellationNotification = monitoringBot.sendCancellationNotification;
-} catch (error) {
-  console.log('Monitoring bot functions not available:', error.message);
-}
 
 let adminBot = null;
 // Support multiple admin chat IDs via environment variable.
@@ -23,30 +14,16 @@ let adminBot = null;
 // For backward compatibility, single ADMIN_CHAT_ID is also supported.
 const ADMIN_IDS = (() => {
   const ids = [];
-  // Faqat ruxsat etilgan admin ID lar
-  const allowedAdmins = ['7386008809', '739525204'];
-  
-  // Environment variable dan olish
   if (process.env.ADMIN_CHAT_ID) {
-    const envId = process.env.ADMIN_CHAT_ID.toString();
-    if (allowedAdmins.includes(envId)) {
-      ids.push(envId);
-    }
+    ids.push(process.env.ADMIN_CHAT_ID.toString());
   }
   if (process.env.ADMIN_CHAT_IDS) {
     const extra = process.env.ADMIN_CHAT_IDS.split(',')
       .map(id => id.trim())
       .filter(Boolean)
-      .map(id => id.toString())
-      .filter(id => allowedAdmins.includes(id));
+      .map(id => id.toString());
     ids.push(...extra);
   }
-  
-  // Agar environment variable bo'lmasa, default admin larni qo'shish
-  if (ids.length === 0) {
-    ids.push(...allowedAdmins);
-  }
-  
   // Remove duplicates
   return Array.from(new Set(ids));
 })();
@@ -61,10 +38,22 @@ const adminStates = new Map(); // Store admin states for booking flow
 const adminBookingModes = new Map(); // Store admin booking mode: 'daily' or 'weekly'
 
 function getAdminBookingMode(adminChatId) {
-  return adminBookingModes.get(adminChatId);
+  const mode = adminBookingModes.get(adminChatId);
+  return mode === 'weekly' ? 'weekly' : 'daily';
 }
 
-// Helper function to create weekly recurring bookings for admin
+function getAdminBookingModeKeyboard() {
+  return {
+    reply_markup: {
+      inline_keyboard: [
+        [Markup.button.callback('📅 Bir kunlik yozdirish', 'admin_booking_mode_daily')],
+        [Markup.button.callback('📆 Haftalik yozdirish (har hafta bir kun uchun)', 'admin_booking_mode_weekly')]
+      ]
+    },
+    parse_mode: 'HTML'
+  };
+}
+
 async function createWeeklyBookingsForAdmin(userId, firstDate, hourStart, hourEnd, weeklyGroupId) {
   // Limit admin weekly series to approximately 1 month (30 days) from the first date
   const startDate = new Date(firstDate);
@@ -72,55 +61,38 @@ async function createWeeklyBookingsForAdmin(userId, firstDate, hourStart, hourEn
   const endDate = new Date(startDate);
   endDate.setDate(endDate.getDate() + 30);
 
-  const weeklyBookings = [];
-  let currentDate = new Date(startDate);
+  for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 7)) {
+    const date = new Date(d);
 
-  while (currentDate <= endDate) {
-    // Only create bookings for future dates (not past dates)
+    // Skip past dates just in case
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    
-    if (currentDate >= today) {
-      // Check if booking already exists for this date and time
-      const existingBooking = await Booking.findOne({
-        userId,
-        date: currentDate,
-        hourStart,
-        hourEnd,
-        weeklyGroupId,
-        status: 'booked'
-      });
-      
-      if (!existingBooking) {
-        const booking = await Booking.create({
-          userId,
-          date: currentDate,
-          hourStart,
-          hourEnd,
-          status: 'booked',
-          isWeekly: true,
-          weeklyGroupId
-        });
-        weeklyBookings.push(booking);
-      }
+    if (date < today) {
+      continue;
     }
-    
-    // Move to next week
-    currentDate.setDate(currentDate.getDate() + 7);
-  }
-  
-  return weeklyBookings;
-}
 
-function getAdminBookingModeKeyboard() {
-  return {
-    reply_markup: {
-      inline_keyboard: [
-        [Markup.button.callback('🔙 Orqaga', 'admin_back')]
-      ]
-    },
-    parse_mode: 'HTML'
-  };
+    // Check if slot is already booked
+    const existingBooking = await Booking.findOne({
+      userId,
+      date: { $gte: date, $lt: new Date(date.getTime() + 24 * 60 * 60 * 1000) },
+      hourStart,
+      status: 'booked'
+    });
+
+    if (existingBooking) {
+      continue;
+    }
+
+    await Booking.create({
+      userId,
+      date,
+      hourStart,
+      hourEnd,
+      status: 'booked',
+      isWeekly: true,
+      weeklyGroupId
+    });
+  }
 }
 
 /**
@@ -179,315 +151,13 @@ function initAdminBot() {
     const data = ctx.callbackQuery.data;
     
     try {
-      // Admin booking mode selection
+      // Admin book button -> choose booking mode first
       if (data === 'admin_book') {
-        await ctx.answerCbQuery('Stadion yozdirish rejimi tanlandi.');
-        
-        const buttons = [
-          [Markup.button.callback('📅 Bir kunlik yozdirish', 'admin_booking_mode_daily')],
-          [Markup.button.callback('📆 Haftalik yozdirish', 'admin_booking_mode_weekly')],
-          [Markup.button.callback('🔙 Orqaga', 'admin_back')]
-        ];
-
+        await ctx.answerCbQuery();
         await ctx.editMessageText(
-          '📝 <b>Stadion yozdirish turini tanlang:</b>',
-          {
-            reply_markup: { inline_keyboard: buttons },
-            parse_mode: 'HTML'
-          }
+          'Bron turini tanlang:',
+          getAdminBookingModeKeyboard()
         );
-      }
-
-      // Admin booking mode - daily
-      else if (data === 'admin_booking_mode_daily') {
-        adminBookingModes.set(adminChatId, 'daily');
-        await ctx.answerCbQuery('Bir kunlik yozdirish rejimi tanlandi.');
-        await ctx.editMessageText(
-          '📅 <b>Stadionni yozdirish uchun sanani tanlang:</b>',
-          {
-            ...createAdminDateKeyboard(),
-            parse_mode: 'HTML'
-          }
-        );
-      }
-
-      // Admin booking mode - weekly
-      else if (data === 'admin_booking_mode_weekly') {
-        adminBookingModes.set(adminChatId, 'weekly');
-        await ctx.answerCbQuery('Haftalik yozdirish rejimi tanlandi.');
-        await ctx.editMessageText(
-          '📅 <b>Haftalik yozdirish uchun hafta kunini tanlang:</b>\n\n' +
-          'Har hafta shu kun stadion band bo\'ladi.',
-          {
-            ...createWeekDayKeyboard(),
-            parse_mode: 'HTML'
-          }
-        );
-      }
-
-      // Admin weekday selection for weekly booking
-      else if (data.startsWith('admin_weekday_')) {
-        const weekDay = parseInt(data.replace('admin_weekday_', ''));
-        const weekDayNames = ['Yakshanba', 'Dushanba', 'Seshanba', 'Chorshanba', 'Payshanba', 'Juma', 'Shanba'];
-        const weekDayName = weekDayNames[weekDay];
-        
-        // Store selected weekday
-        adminStates.set(adminChatId, {
-          type: 'admin_booking',
-          weekDay: weekDay,
-          mode: 'weekly',
-          bookingData: {
-            weekDay: weekDay,
-            mode: 'weekly'
-          }
-        });
-        
-        await ctx.answerCbQuery(`${weekDayName} tanlandi.`);
-        await ctx.editMessageText(
-          `⏰ <b>Vaqt tanlang:</b>\n\n` +
-          `📅 Hafta kuni: ${weekDayName}\n` +
-          `📝 Tur: Haftalik bron\n\n` +
-          `Har hafta shu kun shu vaqtda maydon band bo'ladi.`,
-          {
-            ...createAdminTimeKeyboard(),
-            parse_mode: 'HTML'
-          }
-        );
-      }
-
-      // Admin date selection
-      else if (data.startsWith('admin_date_')) {
-        const dateStr = data.replace('admin_date_', '');
-        const [year, month, day] = dateStr.split('-').map(Number);
-        const selectedDate = new Date(year, month - 1, day);
-        
-        // Store selected date and mode
-        adminStates.set(adminChatId, {
-          type: 'admin_booking',
-          date: selectedDate,
-          mode: adminBookingModes.get(adminChatId) || 'daily',
-          bookingData: {
-            date: selectedDate,
-            mode: adminBookingModes.get(adminChatId) || 'daily'
-          }
-        });
-        
-        await ctx.answerCbQuery('Sana tanlandi.');
-        await ctx.editMessageText(
-          '⏰ <b>Vaqt tanlang:</b>',
-          {
-            ...createAdminTimeKeyboard(),
-            parse_mode: 'HTML'
-          }
-        );
-      }
-
-      // Admin time selection
-      else if (data.startsWith('admin_time_')) {
-        const parts = data.replace('admin_time_', '').split('_');
-        const hourStart = parseInt(parts[0]);
-        const hourEnd = parseInt(parts[1]);
-        
-        const state = adminStates.get(adminChatId);
-        if (!state || state.type !== 'admin_booking') {
-          await ctx.answerCbQuery('Sana avval tanlanishi kerak.');
-          return;
-        }
-        
-        // For weekly booking, check if there's already a daily booking for this time
-        const adminUserId = -Math.abs(parseInt(adminChatId));
-        
-        if (state.mode === 'weekly') {
-          // Check if there's already a daily booking for this time slot
-          const existingDailyBooking = await Booking.findOne({
-            userId: adminUserId,
-            hourStart,
-            hourEnd,
-            isWeekly: { $ne: true },
-            status: 'booked'
-          });
-          
-          if (existingDailyBooking) {
-            await ctx.answerCbQuery('Ushbu vaqt uchun allaqachon bir kunlik bron mavjud! Bir kunlik bron bekor qilingandan so\'ng haftalik bron qilishingiz mumkin.');
-            return;
-          }
-        }
-        
-        // For weekly booking, find next occurrence of selected weekday
-        let bookingDate;
-        if (state.mode === 'weekly') {
-          const today = new Date();
-          today.setHours(0, 0, 0, 0);
-          
-          // Find next occurrence of selected weekday
-          bookingDate = new Date(today);
-          while (bookingDate.getDay() !== state.weekDay) {
-            bookingDate.setDate(bookingDate.getDate() + 1);
-          }
-          
-          // Check if slot is available for this specific date
-          const existingBooking = await Booking.findOne({
-            date: { $gte: bookingDate, $lt: new Date(bookingDate.getTime() + 24 * 60 * 60 * 1000) },
-            hourStart,
-            status: 'booked'
-          });
-          
-          if (existingBooking) {
-            await ctx.answerCbQuery('Bu vaqt allaqachon band qilingan!');
-            return;
-          }
-        } else {
-          // For daily booking, use the stored date
-          bookingDate = state.date;
-          
-          // Check if slot is available for this specific date
-          const existingBooking = await Booking.findOne({
-            date: { $gte: bookingDate, $lt: new Date(bookingDate.getTime() + 24 * 60 * 60 * 1000) },
-            hourStart,
-            status: 'booked'
-          });
-          
-          if (existingBooking) {
-            await ctx.answerCbQuery('Bu vaqt allaqachon band qilingan!');
-            return;
-          }
-          
-          // Check if there's already a weekly booking for this time slot
-          const existingWeeklyBooking = await Booking.findOne({
-            userId: adminUserId,
-            hourStart,
-            hourEnd,
-            isWeekly: true,
-            status: 'booked'
-          });
-          
-          if (existingWeeklyBooking) {
-            await ctx.answerCbQuery('Ushbu vaqt uchun allaqachon haftalik bron mavjud! Haftalik bron bekor qilingandan so\'ng bir kunlik bron qilishingiz mumkin.');
-            return;
-          }
-        }
-        
-        // Store booking data for text handler
-        adminStates.set(adminChatId, {
-          type: 'admin_booking',
-          ...state,
-          bookingData: {
-            date: bookingDate,
-            hourStart,
-            hourEnd,
-            mode: state.mode,
-            weekDay: state.weekDay
-          }
-        });
-        
-        // Ask for user info
-        await ctx.answerCbQuery('Vaqt tanlandi.');
-        await ctx.editMessageText(
-          '📝 <b>Foydalanuvchi ma\'lumotlarini kiriting:</b>\n\n' +
-          'Ismi va telefon raqamini quyidagi formatda kiriting:\n\n' +
-          '<b>Ism Familiya, +998901234567</b>\n\n' +
-          'Masalan:\n<b>Ahmad Valiyev, +998901234567</b>',
-          { parse_mode: 'HTML' }
-        );
-
-        if (state.mode === 'weekly') {
-          // Check active weekly groups limit for admin (max 8)
-          const today = new Date();
-          today.setHours(0, 0, 0, 0);
-          const activeWeeklyGroups = await Booking.distinct('weeklyGroupId', {
-            userId: adminUserId,
-            isWeekly: true,
-            weeklyGroupId: { $ne: null },
-            status: 'booked',
-            date: { $gte: today }
-          });
-          const activeWeeklyCount = activeWeeklyGroups.filter(g => g !== null).length;
-          if (activeWeeklyCount >= 8) {
-            await ctx.answerCbQuery('Siz maksimal 8 ta haftalik bron qilishingiz mumkin. Yangi haftalik bron qilishdan oldin mavjud haftalik bronlardan birini bekor qiling.');
-            adminStates.delete(adminChatId);
-            return;
-          }
-
-          const weeklyGroupId = `${adminUserId}_${Date.now()}_${hourStart}`;
-          // First booking in weekly series
-          booking = await Booking.create({
-            userId: adminUserId,
-            date: bookingDate,
-            hourStart,
-            hourEnd,
-            status: 'booked',
-            isWeekly: true,
-            weeklyGroupId
-          });
-
-          // Create future weekly bookings
-          await createWeeklyBookingsForAdmin(adminUserId, bookingDate, hourStart, hourEnd, weeklyGroupId);
-        } else {
-          booking = await Booking.create({
-            userId: adminUserId,
-            date: bookingDate,
-            hourStart,
-            hourEnd,
-            status: 'booked'
-          });
-        }
-        
-        // Create or update user with admin info
-        const adminInfo = ctx.from;
-        await User.findOneAndUpdate(
-          { userId: adminUserId },
-          {
-            userId: adminUserId,
-            username: adminInfo.username || null,
-            phone: 'Admin',
-            firstName: adminInfo.first_name || 'Admin',
-            lastName: adminInfo.last_name || null
-          },
-          { upsert: true, new: true }
-        );
-        
-        const user = await User.findOne({ userId: adminUserId });
-        
-        // Notify channel
-        await notifyChannelBooking(bookingDate, hourStart, hourEnd, adminUserId, user.username || '');
-        
-        // Notify monitoring bot
-        const adminName = adminInfo.first_name || adminInfo.username || 'Admin';
-        const bookingInfo = {
-          date: formatDate(bookingDate),
-          time: `${String(hourStart).padStart(2, '0')}:00–${String(hourEnd === 0 ? '00' : hourEnd).padStart(2, '0')}:00`,
-          phone: 'Admin'
-        };
-        
-        try {
-          if (sendBookingNotification) {
-            await sendBookingNotification(adminChatId, bookingInfo, adminName);
-          }
-        } catch (error) {
-          console.error('Error sending to monitoring bot:', error);
-        }
-        
-        const timeLabel = `${String(hourStart).padStart(2, '0')}:00–${String(hourEnd === 0 ? '00' : hourEnd).padStart(2, '0')}:00`;
-        
-        let successMessage = `✅ <b>Bron muvaffaqiyatli qilindi!</b>\n\n` +
-          `📅 Sana: ${formatDate(bookingDate)}\n` +
-          `⏰ Vaqt: ${timeLabel}\n` +
-          `👤 Admin: ${adminName}`;
-
-        if (booking.isWeekly) {
-          successMessage += `\n\n📆 Bu haftalik bron. Har hafta shu kuni shu vaqtda maydon band bo'ladi.`;
-        }
-
-        await ctx.editMessageText(
-          successMessage,
-          {
-            ...createAdminReplyKeyboard(),
-            parse_mode: 'HTML'
-          }
-        );
-        
-        adminStates.delete(adminChatId);
-        await ctx.answerCbQuery('Bron muvaffaqiyatli qilindi!');
       }
 
       // Admin choose user to block
@@ -635,6 +305,19 @@ function initAdminBot() {
         );
       }
 
+      // Admin booking mode selection
+      else if (data === 'admin_booking_mode_daily') {
+        adminBookingModes.set(adminChatId, 'daily');
+        await ctx.answerCbQuery('Bir kunlik yozdirish rejimi tanlandi.');
+        await ctx.editMessageText(
+          '📅 <b>Stadioni yozdirish uchun sanani tanlang:</b>',
+          {
+            ...createAdminDateKeyboard(),
+            parse_mode: 'HTML'
+          }
+        );
+      }
+
       // Admin block menu
       else if (data === 'admin_block_menu') {
         await ctx.answerCbQuery();
@@ -653,7 +336,84 @@ function initAdminBot() {
           }
         );
       }
-
+      else if (data === 'admin_booking_mode_weekly') {
+        adminBookingModes.set(adminChatId, 'weekly');
+        await ctx.answerCbQuery('Haftalik yozdirish rejimi tanlandi.');
+        await ctx.editMessageText(
+          '📅 <b>Stadioni haftalik yozdirish uchun sanani tanlang:</b>',
+          {
+            ...createAdminDateKeyboard(),
+            parse_mode: 'HTML'
+          }
+        );
+      }
+      
+      // Admin date selection
+      else if (data.startsWith('admin_date_')) {
+        const dateStr = data.replace('admin_date_', '');
+        // Parse date string (YYYY-MM-DD) as local date, not UTC
+        const [year, month, day] = dateStr.split('-').map(Number);
+        const selectedDate = new Date(year, month - 1, day);
+        
+        await ctx.answerCbQuery();
+        await ctx.editMessageText(
+          `📅 <b>Sana:</b> ${formatDate(selectedDate)}\n\n` +
+          `⏰ <b>Vaqtni tanlang:</b>`,
+          {
+            ...createAdminTimeKeyboard(dateStr),
+            parse_mode: 'HTML'
+          }
+        );
+      }
+      
+      // Admin time selection
+      else if (data.startsWith('admin_time_')) {
+        const parts = data.replace('admin_time_', '').split('_');
+        const dateStr = parts[0];
+        const hourStart = parseInt(parts[1]);
+        const hourEnd = parseInt(parts[2]);
+        
+        // Parse date string (YYYY-MM-DD) as local date, not UTC
+        const [year, month, day] = dateStr.split('-').map(Number);
+        const selectedDate = new Date(year, month - 1, day);
+        
+        // Check if slot is available
+        const existingBooking = await Booking.findOne({
+          date: { $gte: selectedDate, $lt: new Date(selectedDate.getTime() + 24 * 60 * 60 * 1000) },
+          hourStart,
+          status: 'booked'
+        });
+        
+        if (existingBooking) {
+          await ctx.answerCbQuery('Bu vaqt allaqachon band!');
+          return;
+        }
+        
+        // Store booking info in state
+        const mode = getAdminBookingMode(adminChatId);
+        adminStates.set(adminChatId, {
+          type: 'admin_booking',
+          date: selectedDate,
+          hourStart,
+          hourEnd,
+          mode
+        });
+        
+        await ctx.answerCbQuery();
+        await ctx.editMessageText(
+          `📝 <b>Faqat telefon raqamni kiriting:</b>\n\n` +
+          `Masalan: +998901234567`,
+          {
+            reply_markup: {
+              inline_keyboard: [[
+                Markup.button.callback('🔙 Bekor qilish', 'admin_back')
+              ]]
+            },
+            parse_mode: 'HTML'
+          }
+        );
+      }
+      
       // Admin view schedule
       else if (data === 'admin_view_schedule') {
         await ctx.answerCbQuery('Jadval yuklanmoqda...');
@@ -712,7 +472,7 @@ function initAdminBot() {
           parse_mode: 'HTML'
         });
       }
-
+      
       // Admin cancel booking - choose daily vs weekly
       else if (data === 'admin_cancel_booking') {
         await ctx.answerCbQuery();
@@ -890,9 +650,7 @@ function initAdminBot() {
           };
           
           try {
-            if (sendCancellationNotification) {
-              await sendCancellationNotification(adminChatId, bookingInfo, adminName, `Admin ${adminName} tomonidan haftalik bron bekor qilindi`);
-            }
+            await sendCancellationNotification(adminChatId, bookingInfo, adminName, 'Haftalik bron bekor qilindi');
           } catch (error) {
             console.error('Error sending to monitoring bot:', error);
           }
@@ -938,9 +696,7 @@ function initAdminBot() {
         };
         
         try {
-          if (sendCancellationNotification) {
-            await sendCancellationNotification(adminChatId, bookingInfo, adminName, `Admin ${adminName} tomonidan bekor qilindi`);
-          }
+          await sendCancellationNotification(adminChatId, bookingInfo, adminName, 'Admin tomonidan bekor qilindi');
         } catch (error) {
           console.error('Error sending to monitoring bot:', error);
         }
@@ -1484,55 +1240,13 @@ function initAdminBot() {
       const state = adminStates.get(adminChatId);
       
       if (state && state.type === 'admin_booking') {
-        // Check if we need user info
-        if (!state.expectingUserInfo) {
-          // Ask for user name and phone
-          await ctx.reply(
-            '📝 <b>Foydalanuvchi ma\'lumotlarini kiriting:</b>\n\n' +
-            'Ismi va telefon raqamini quyidagi formatda kiriting:\n\n' +
-            '<b>Ism Familiya, +998901234567</b>\n\n' +
-            'Masalan:\n<b>Ahmad Valiyev, +998901234567</b>',
-            { parse_mode: 'HTML' }
-          );
-          
-          // Update state to expect user info
-          adminStates.set(adminChatId, {
-            ...state,
-            expectingUserInfo: true
-          });
-          return;
-        }
-        
-        // Parse user info
-        const userInfoText = text.trim();
-        const match = userInfoText.match(/^(.+?),\s*(\+?\d+)$/);
-        
-        if (!match) {
-          await ctx.reply(
-            '❌ <b>Noto\'g\'ri format!</b>\n\n' +
-            'Iltimos, quyidagi formatda kiriting:\n' +
-            '<b>Ism Familiya, +998901234567</b>',
-            { parse_mode: 'HTML' }
-          );
-          return;
-        }
-        
-        const [, fullName, phone] = match;
-        const [firstName, ...lastNameParts] = fullName.trim().split(' ');
-        const lastName = lastNameParts.join(' ') || '';
-        
-        // Get booking data from state
-        const { bookingData } = state;
-        if (!bookingData) {
-          await ctx.reply('❌ Bron ma\'lumotlari topilmadi. Qaytadan boshlang.');
-          adminStates.delete(adminChatId);
-          return;
-        }
+        // Handle booking name/phone input
+        const { date, hourStart, hourEnd, mode } = state;
         
         // Check if slot is still available
         const existingBooking = await Booking.findOne({
-          date: { $gte: bookingData.date, $lt: new Date(bookingData.date.getTime() + 24 * 60 * 60 * 1000) },
-          hourStart: bookingData.hourStart,
+          date: { $gte: date, $lt: new Date(date.getTime() + 24 * 60 * 60 * 1000) },
+          hourStart,
           status: 'booked'
         });
         
@@ -1542,11 +1256,11 @@ function initAdminBot() {
           return;
         }
         
-        // Create booking
+        // Create booking with special userId (negative for admin bookings)
         const adminUserId = -Math.abs(parseInt(adminChatId));
         let booking;
 
-        if (bookingData.mode === 'weekly') {
+        if (mode === 'weekly') {
           // Check active weekly groups limit for admin (max 8)
           const today = new Date();
           today.setHours(0, 0, 0, 0);
@@ -1559,77 +1273,79 @@ function initAdminBot() {
           });
           const activeWeeklyCount = activeWeeklyGroups.filter(g => g !== null).length;
           if (activeWeeklyCount >= 8) {
-            await ctx.reply('❌ Siz maksimal 8 ta haftalik bron qilishingiz mumkin.');
+            await ctx.reply('❌ Siz maksimal 8 ta haftalik bron qilishingiz mumkin. Yangi haftalik bron qilishdan oldin mavjud haftalik bronlardan birini bekor qiling.');
             adminStates.delete(adminChatId);
             return;
           }
 
-          const weeklyGroupId = `${adminUserId}_${Date.now()}_${bookingData.hourStart}`;
+          const weeklyGroupId = `${adminUserId}_${Date.now()}_${hourStart}`;
           // First booking in weekly series
           booking = await Booking.create({
             userId: adminUserId,
-            date: bookingData.date,
-            hourStart: bookingData.hourStart,
-            hourEnd: bookingData.hourEnd,
+            date,
+            hourStart,
+            hourEnd,
             status: 'booked',
             isWeekly: true,
             weeklyGroupId
           });
 
-          // Create future weekly bookings
-          await createWeeklyBookingsForAdmin(adminUserId, bookingData.date, bookingData.hourStart, bookingData.hourEnd, weeklyGroupId);
+          // Create future weekly bookings without extra notifications
+          await createWeeklyBookingsForAdmin(adminUserId, date, hourStart, hourEnd, weeklyGroupId);
         } else {
           booking = await Booking.create({
             userId: adminUserId,
-            date: bookingData.date,
-            hourStart: bookingData.hourStart,
-            hourEnd: bookingData.hourEnd,
+            date,
+            hourStart,
+            hourEnd,
             status: 'booked'
           });
         }
         
-        // Create or update user with provided info
+        // Create or update user with phone only (no name)
+        const rawInput = text.trim();
+        const phoneMatch = rawInput.match(/\+?\d{9,13}/);
+        const phone = phoneMatch ? phoneMatch[0] : rawInput;
+        const name = '';
+        
         await User.findOneAndUpdate(
           { userId: adminUserId },
           {
             userId: adminUserId,
             username: null,
-            phone: phone,
-            firstName: firstName,
-            lastName: lastName
+            phone,
+            firstName: name || null,
+            lastName: null
           },
           { upsert: true, new: true }
         );
         
         const user = await User.findOne({ userId: adminUserId });
         
-        // Notify channel
-        await notifyChannelBooking(bookingData.date, bookingData.hourStart, bookingData.hourEnd, adminUserId, user.username || '');
+        // Notify channel (pass name as userName, phone will be fetched in notifyChannelBooking)
+        await notifyChannelBooking(date, hourStart, hourEnd, adminUserId, name || phone || '');
         
         // Notify monitoring bot
-        const adminName = ctx.from.first_name || ctx.from.username || 'Admin';
+        const adminInfo = ctx.from;
+        const adminName = adminInfo.first_name || adminInfo.username || 'Admin';
         const bookingInfo = {
-          date: formatDate(bookingData.date),
-          time: `${String(bookingData.hourStart).padStart(2, '0')}:00–${String(bookingData.hourEnd === 0 ? '00' : bookingData.hourEnd).padStart(2, '0')}:00`,
+          date: formatDate(date),
+          time: `${String(hourStart).padStart(2, '0')}:00–${String(hourEnd === 0 ? '00' : hourEnd).padStart(2, '0')}:00`,
           phone: phone
         };
         
         try {
-          if (sendBookingNotification) {
-            await sendBookingNotification(adminChatId, bookingInfo, adminName);
-          }
+          await sendBookingNotification(adminChatId, bookingInfo, adminName);
         } catch (error) {
           console.error('Error sending to monitoring bot:', error);
         }
         
-        const timeLabel = `${String(bookingData.hourStart).padStart(2, '0')}:00–${String(bookingData.hourEnd === 0 ? '00' : bookingData.hourEnd).padStart(2, '0')}:00`;
+        const timeLabel = `${String(hourStart).padStart(2, '0')}:00–${String(hourEnd === 0 ? '00' : hourEnd).padStart(2, '0')}:00`;
         
         let successMessage = `✅ <b>Bron muvaffaqiyatli qilindi!</b>\n\n` +
-          `📅 Sana: ${formatDate(bookingData.date)}\n` +
+          `📅 Sana: ${formatDate(date)}\n` +
           `⏰ Vaqt: ${timeLabel}\n` +
-          `👤 Admin: ${adminName}\n` +
-          `📞 Telefon: ${phone}\n` +
-          `👤 Foydalanuvchi: ${firstName} ${lastName}`;
+          `📞 Telefon: ${phone}`;
 
         if (booking.isWeekly) {
           successMessage += `\n\n📆 Bu haftalik bron. Har hafta shu kuni shu vaqtda maydon band bo'ladi.`;
@@ -1643,13 +1359,14 @@ function initAdminBot() {
           }
         );
         
-        // Clear state after successful booking
         adminStates.delete(adminChatId);
         return;
       }
       
       // Handle Reply Keyboard buttons
-      if (text === '📊 Joylarni ko\'rish') {
+      if (text === '📝📝📝 STADIONI YOZDIRISH 📝📝📝' || text === '📝 Stadioni yozdirish') {
+        await ctx.reply('Bron turini tanlang:', getAdminBookingModeKeyboard());
+      } else if (text === '📊 Joylarni ko\'rish') {
         const weekStart = getWeekStart();
         const schedule = await getWeekScheduleExcludingPast(weekStart);
         
@@ -1669,20 +1386,6 @@ function initAdminBot() {
           reply_markup: { inline_keyboard: buttons },
           parse_mode: 'HTML'
         });
-      } else if (text === '📝 Stadion yozdirish') {
-        const buttons = [
-          [Markup.button.callback('📅 Bir kunlik yozdirish', 'admin_booking_mode_daily')],
-          [Markup.button.callback('📆 Haftalik yozdirish', 'admin_booking_mode_weekly')],
-          [Markup.button.callback('🔙 Orqaga', 'admin_back')]
-        ];
-
-        await ctx.reply(
-          '📝 <b>Stadion yozdirish turini tanlang:</b>',
-          {
-            reply_markup: { inline_keyboard: buttons },
-            parse_mode: 'HTML'
-          }
-        );
       } else if (text === '❌ Bronlarni bekor qilish') {
         const buttons = [
           [Markup.button.callback('❌ Kunlik broni bekor qilish', 'admin_cancel_daily_menu')],
