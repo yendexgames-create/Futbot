@@ -80,11 +80,14 @@ function getAdminBookingModeKeyboard() {
 }
 
 async function createWeeklyBookingsForAdmin(userId, firstDate, hourStart, hourEnd, weeklyGroupId) {
-  // Limit admin weekly series to approximately 1 month (30 days) from the first date
+  // Create weekly bookings for exactly 7 weeks
   const startDate = new Date(firstDate);
   startDate.setHours(0, 0, 0, 0);
   const endDate = new Date(startDate);
-  endDate.setDate(endDate.getDate() + 30);
+  endDate.setDate(endDate.getDate() + 7 * 7); // 7 weeks * 7 days
+  
+  const bookedDates = [];
+  const skippedDates = [];
 
   for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 7)) {
     const date = new Date(d);
@@ -96,18 +99,25 @@ async function createWeeklyBookingsForAdmin(userId, firstDate, hourStart, hourEn
       continue;
     }
 
-    // Check if slot is already booked
+    // Check if slot is already booked (both daily and weekly)
     const existingBooking = await Booking.findOne({
       userId,
       date: { $gte: date, $lt: new Date(date.getTime() + 24 * 60 * 60 * 1000) },
-      hourStart,
-      status: 'booked'
+      $or: [
+        { hourStart, status: 'booked', isWeekly: { $ne: true } }, // Daily booking
+        { hourStart, status: 'booked', isWeekly: true } // Weekly booking
+      ]
     });
 
     if (existingBooking) {
+      skippedDates.push({
+        date: formatDate(date),
+        reason: existingBooking.isWeekly ? 'haftalik bron' : 'kunlik bron'
+      });
       continue;
     }
 
+    // Create weekly booking
     await Booking.create({
       userId,
       date,
@@ -117,7 +127,11 @@ async function createWeeklyBookingsForAdmin(userId, firstDate, hourStart, hourEn
       isWeekly: true,
       weeklyGroupId
     });
+
+    bookedDates.push(formatDate(date));
   }
+
+  return { bookedDates, skippedDates };
 }
 
 /**
@@ -1321,7 +1335,32 @@ function initAdminBot() {
           });
 
           // Create future weekly bookings without extra notifications
-          await createWeeklyBookingsForAdmin(adminUserId, date, hourStart, hourEnd, weeklyGroupId);
+          const weeklyResult = await createWeeklyBookingsForAdmin(adminUserId, date, hourStart, hourEnd, weeklyGroupId);
+          
+          // Show results
+          let resultMessage = `✅ <b>Haftalik bron muvaffaqiyatli yaratildi!</b>\n\n`;
+          
+          if (weeklyResult.bookedDates.length > 0) {
+            resultMessage += `📅 <b>Bron qilingan kunlar:</b>\n`;
+            weeklyResult.bookedDates.forEach((bookedDate, index) => {
+              resultMessage += `${index + 1}. ${bookedDate}\n`;
+            });
+          }
+          
+          if (weeklyResult.skippedDates.length > 0) {
+            resultMessage += `\n⚠️ <b>O'tkazib yuborilgan kunlar:</b>\n`;
+            weeklyResult.skippedDates.forEach((skipped, index) => {
+              resultMessage += `${index + 1}. ${skipped.date} - ${skipped.reason} bor\n`;
+            });
+          }
+          
+          await ctx.reply(resultMessage, {
+            ...createAdminReplyKeyboard(),
+            parse_mode: 'HTML'
+          });
+          
+          adminStates.delete(adminChatId);
+          return;
         } else {
           booking = await Booking.create({
             userId: adminUserId,
