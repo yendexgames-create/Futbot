@@ -28,35 +28,10 @@ const ADMIN_IDS = (() => {
   return Array.from(new Set(ids));
 })();
 
-// Stadium booking allowed IDs
-const STADION_BOOKING_IDS = (() => {
-  const ids = [];
-  // Default hardcoded IDs
-  ids.push('739525204', '7386008809');
-  
-  // Also check environment variable
-  if (process.env.STADION_BOOKING_IDS) {
-    const extra = process.env.STADION_BOOKING_IDS.split(',')
-      .map(id => id.trim())
-      .filter(Boolean)
-      .map(id => id.toString());
-    ids.push(...extra);
-  }
-  
-  // Remove duplicates
-  return Array.from(new Set(ids));
-})();
-
 function isAdmin(chatId) {
   if (!chatId) return false;
   const idStr = chatId.toString();
   return ADMIN_IDS.includes(idStr);
-}
-
-function canBookStadium(chatId) {
-  if (!chatId) return false;
-  const idStr = chatId.toString();
-  return STADION_BOOKING_IDS.includes(idStr);
 }
 
 const adminStates = new Map(); // Store admin states for booking flow
@@ -80,14 +55,11 @@ function getAdminBookingModeKeyboard() {
 }
 
 async function createWeeklyBookingsForAdmin(userId, firstDate, hourStart, hourEnd, weeklyGroupId) {
-  // Create weekly bookings for exactly 7 weeks
+  // Limit admin weekly series to approximately 1 month (30 days) from the first date
   const startDate = new Date(firstDate);
   startDate.setHours(0, 0, 0, 0);
   const endDate = new Date(startDate);
-  endDate.setDate(endDate.getDate() + 7 * 7); // 7 weeks * 7 days
-  
-  const bookedDates = [];
-  const skippedDates = [];
+  endDate.setDate(endDate.getDate() + 30);
 
   for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 7)) {
     const date = new Date(d);
@@ -99,25 +71,18 @@ async function createWeeklyBookingsForAdmin(userId, firstDate, hourStart, hourEn
       continue;
     }
 
-    // Check if slot is already booked (both daily and weekly)
+    // Check if slot is already booked
     const existingBooking = await Booking.findOne({
       userId,
       date: { $gte: date, $lt: new Date(date.getTime() + 24 * 60 * 60 * 1000) },
-      $or: [
-        { hourStart, status: 'booked', isWeekly: { $ne: true } }, // Daily booking
-        { hourStart, status: 'booked', isWeekly: true } // Weekly booking
-      ]
+      hourStart,
+      status: 'booked'
     });
 
     if (existingBooking) {
-      skippedDates.push({
-        date: formatDate(date),
-        reason: existingBooking.isWeekly ? 'haftalik bron' : 'kunlik bron'
-      });
       continue;
     }
 
-    // Create weekly booking
     await Booking.create({
       userId,
       date,
@@ -127,11 +92,7 @@ async function createWeeklyBookingsForAdmin(userId, firstDate, hourStart, hourEn
       isWeekly: true,
       weeklyGroupId
     });
-
-    bookedDates.push(formatDate(date));
   }
-
-  return { bookedDates, skippedDates };
 }
 
 /**
@@ -192,11 +153,6 @@ function initAdminBot() {
     try {
       // Admin book button -> choose booking mode first
       if (data === 'admin_book') {
-        // Check if user has permission to book stadium
-        if (!canBookStadium(adminChatId)) {
-          await ctx.answerCbQuery('❌ Ruxsat yo\'q!');
-          return;
-        }
         await ctx.answerCbQuery();
         await ctx.editMessageText(
           'Bron turini tanlang:',
@@ -1335,32 +1291,7 @@ function initAdminBot() {
           });
 
           // Create future weekly bookings without extra notifications
-          const weeklyResult = await createWeeklyBookingsForAdmin(adminUserId, date, hourStart, hourEnd, weeklyGroupId);
-          
-          // Show results
-          let resultMessage = `✅ <b>Haftalik bron muvaffaqiyatli yaratildi!</b>\n\n`;
-          
-          if (weeklyResult.bookedDates.length > 0) {
-            resultMessage += `📅 <b>Bron qilingan kunlar:</b>\n`;
-            weeklyResult.bookedDates.forEach((bookedDate, index) => {
-              resultMessage += `${index + 1}. ${bookedDate}\n`;
-            });
-          }
-          
-          if (weeklyResult.skippedDates.length > 0) {
-            resultMessage += `\n⚠️ <b>O'tkazib yuborilgan kunlar:</b>\n`;
-            weeklyResult.skippedDates.forEach((skipped, index) => {
-              resultMessage += `${index + 1}. ${skipped.date} - ${skipped.reason} bor\n`;
-            });
-          }
-          
-          await ctx.reply(resultMessage, {
-            ...createAdminReplyKeyboard(),
-            parse_mode: 'HTML'
-          });
-          
-          adminStates.delete(adminChatId);
-          return;
+          await createWeeklyBookingsForAdmin(adminUserId, date, hourStart, hourEnd, weeklyGroupId);
         } else {
           booking = await Booking.create({
             userId: adminUserId,
@@ -1434,16 +1365,6 @@ function initAdminBot() {
       
       // Handle Reply Keyboard buttons
       if (text === '📝📝📝 STADIONI YOZDIRISH 📝📝📝' || text === '📝 Stadioni yozdirish') {
-        // Check if user has permission to book stadium
-        if (!canBookStadium(adminChatId)) {
-          await ctx.reply(
-            '❌ <b>Ruxsat yo\'q!</b>\n\n' +
-            'Stadion yozdirish faqat ma\'lum foydalanuvchilar uchun ruxsat etilgan.\n' +
-            'Sizning Chat ID: ' + adminChatId,
-            { parse_mode: 'HTML' }
-          );
-          return;
-        }
         await ctx.reply('Bron turini tanlang:', getAdminBookingModeKeyboard());
       } else if (text === '📊 Joylarni ko\'rish') {
         const weekStart = getWeekStart();
