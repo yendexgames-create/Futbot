@@ -8,7 +8,8 @@ const User = require('../models/User');
  */
 function createAdminMainKeyboard() {
   return Markup.inlineKeyboard([
-    [Markup.button.callback(' Joylarni ko\'rish', 'admin_view_schedule')],
+    [Markup.button.callback('📝📝📝 STADIONI YOZDIRISH 📝📝📝', 'admin_book')],
+    [Markup.button.callback('📊 Joylarni ko\'rish', 'admin_view_schedule')],
     [Markup.button.callback('❌ Bronlarni bekor qilish', 'admin_cancel_booking')],
     [Markup.button.callback('💰 Jarima belgilash', 'admin_penalty')],
     [Markup.button.callback('🚫 Bloklash', 'admin_block_menu')]
@@ -20,7 +21,8 @@ function createAdminMainKeyboard() {
  */
 function createAdminReplyKeyboard() {
   return Markup.keyboard([
-    [' Joylarni ko\'rish', '❌ Bronlarni bekor qilish'],
+    ['📝📝📝 STADIONI YOZDIRISH 📝📝📝'],
+    ['📊 Joylarni ko\'rish', '❌ Bronlarni bekor qilish'],
     ['💰 Jarima belgilash', '🚫 Bloklash']
   ]).resize().persistent();
 }
@@ -161,7 +163,6 @@ async function getWeekSchedule(weekStart = new Date()) {
     let schedule = '';
     
     for (const day of weekDays) {
-      // JavaScript: 0=Yakshanba, 1=Dushanba, ..., 6=Shanba
       const dayNames = ['Yakshanba', 'Dushanba', 'Seshanba', 'Chorshanba', 'Payshanba', 'Juma', 'Shanba'];
       const dayName = dayNames[day.getDay()];
       const daySchedule = await getDaySchedule(day);
@@ -191,7 +192,6 @@ async function getWeekScheduleExcludingPast(weekStart = new Date()) {
         continue;
       }
       
-      // JavaScript: 0=Yakshanba, 1=Dushanba, ..., 6=Shanba
       const dayNames = ['Yakshanba', 'Dushanba', 'Seshanba', 'Chorshanba', 'Payshanba', 'Juma', 'Shanba'];
       const dayName = dayNames[day.getDay()];
       const daySchedule = await getDaySchedule(day);

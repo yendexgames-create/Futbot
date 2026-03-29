@@ -128,7 +128,7 @@ function getUserBookingMode(userId) {
 
 // Helper to create weekly recurring bookings up to ~1 month ahead
 async function createWeeklyBookings(userId, firstDate, hourStart, hourEnd, weeklyGroupId) {
-  // Limit weekly series to approximately 1 month (30 days) from first date
+  // Limit weekly series to approximately 1 month (30 days) from the first date
   const startDate = new Date(firstDate);
   startDate.setHours(0, 0, 0, 0);
   const endDate = new Date(startDate);
@@ -136,6 +136,11 @@ async function createWeeklyBookings(userId, firstDate, hourStart, hourEnd, weekl
 
   for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 7)) {
     const date = new Date(d);
+
+    // Skip past dates just in case
+    if (isPastDate(date)) {
+      continue;
+    }
 
     // Check if slot is already booked
     const existingBooking = await Booking.findOne({
@@ -146,7 +151,6 @@ async function createWeeklyBookings(userId, firstDate, hourStart, hourEnd, weekl
     });
 
     if (existingBooking) {
-      console.log(`Slot already booked: ${formatDate(date)} ${hourStart}:00`);
       continue;
     }
 
@@ -159,8 +163,6 @@ async function createWeeklyBookings(userId, firstDate, hourStart, hourEnd, weekl
       isWeekly: true,
       weeklyGroupId
     });
-    
-    console.log(`Weekly booking created: ${formatDate(date)} ${hourStart}:00-${hourEnd}:00`);
   }
 }
 
@@ -197,8 +199,9 @@ bot.on('callback_query', async (ctx) => {
     // Handle day selection
     if (data.startsWith('day_')) {
       const dateStr = data.replace('day_', '');
-      // Parse date string (YYYY-MM-DD) correctly
-      const selectedDate = new Date(dateStr + 'T00:00:00');
+      // Parse date string (YYYY-MM-DD) as local date, not UTC
+      const [year, month, day] = dateStr.split('-').map(Number);
+      const selectedDate = new Date(year, month - 1, day);
       
       if (isPastDate(selectedDate)) {
         await ctx.answerCbQuery('Bu kun allaqachon o\'tib ketgan.');
