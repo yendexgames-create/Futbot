@@ -1024,7 +1024,7 @@ function initAdminBot() {
           `💰 <b>Jarima:</b> ${booking.penaltyAmount.toLocaleString()} so'm\n\n` +
           `Foydalanuvchiga xabar yuborildi.`,
           {
-            ...createAdminMainKeyboard(),
+            ...createAdminReplyKeyboard(),
             parse_mode: 'HTML'
           }
         );
@@ -1064,7 +1064,7 @@ function initAdminBot() {
         await ctx.editMessageText(
           '✅ <b>To\'lov qabul qilindi va foydalanuvchiga xabar yuborildi!</b>',
           {
-            ...createAdminMainKeyboard(),
+            ...createAdminReplyKeyboard(),
             parse_mode: 'HTML'
           }
         );
@@ -1102,7 +1102,7 @@ function initAdminBot() {
         await ctx.editMessageText(
           '❌ <b>To\'lov rad etildi va foydalanuvchiga xabar yuborildi!</b>',
           {
-            ...createAdminMainKeyboard(),
+            ...createAdminReplyKeyboard(),
             parse_mode: 'HTML'
           }
         );
@@ -1276,7 +1276,7 @@ function initAdminBot() {
  * Send new booking notification to admin
  */
 async function notifyNewBooking(booking, user) {
-  if (!adminBot || !process.env.ADMIN_CHAT_ID) return;
+  if (!adminBot || ADMIN_IDS.length === 0) return;
   
   try {
     const timeLabel = `${String(booking.hourStart).padStart(2, '0')}:00–${String(booking.hourEnd).padStart(2, '0')}:00`;
@@ -1290,17 +1290,22 @@ async function notifyNewBooking(booking, user) {
       `📞 Telefon: ${phone}\n` +
       `🆔 Foydalanuvchi ID: ${user.userId}`;
     
-    await adminBot.telegram.sendMessage(process.env.ADMIN_CHAT_ID, message);
+    // Send to all admin IDs
+    for (const adminId of ADMIN_IDS) {
+      try {
+        await adminBot.telegram.sendMessage(adminId, message);
+      } catch (error) {
+        console.error(`❌ Error sending booking notification to admin ${adminId}:`, error);
+      }
+    }
   } catch (error) {
     console.error('❌ Error sending booking notification to admin:', error);
   }
-}
-
 /**
  * Send cancellation notification to admin
  */
 async function notifyCancellation(booking, user, isLate = false) {
-  if (!adminBot || !process.env.ADMIN_CHAT_ID) return;
+  if (!adminBot || ADMIN_IDS.length === 0) return;
   
   try {
     const timeLabel = `${String(booking.hourStart).padStart(2, '0')}:00–${String(booking.hourEnd).padStart(2, '0')}:00`;
@@ -1326,7 +1331,14 @@ async function notifyCancellation(booking, user, isLate = false) {
       message += `\n\n💰 Jarima: ${booking.penaltyAmount.toLocaleString()} so'm`;
     }
     
-    await adminBot.telegram.sendMessage(process.env.ADMIN_CHAT_ID, message);
+    // Send to all admin IDs
+    for (const adminId of ADMIN_IDS) {
+      try {
+        await adminBot.telegram.sendMessage(adminId, message);
+      } catch (error) {
+        console.error(`❌ Error sending cancellation notification to admin ${adminId}:`, error);
+      }
+    }
   } catch (error) {
     console.error('❌ Error sending cancellation notification to admin:', error);
   }
@@ -1336,7 +1348,7 @@ async function notifyCancellation(booking, user, isLate = false) {
  * Send late cancellation penalty notification to admin
  */
 async function notifyLateCancellationPenalty(booking, user, reason, paymentPromise) {
-  if (!adminBot || !process.env.ADMIN_CHAT_ID) return;
+  if (!adminBot || ADMIN_IDS.length === 0) return;
   
   try {
     const timeLabel = `${String(booking.hourStart).padStart(2, '0')}:00–${String(booking.hourEnd).padStart(2, '0')}:00`;
@@ -1356,9 +1368,16 @@ async function notifyLateCancellationPenalty(booking, user, reason, paymentPromi
       `━━━━━━━━━━━━━━━━━━━━\n\n` +
       `⚠️ <b>Bu foydalanuvchi ${booking.penaltyAmount.toLocaleString()} so'm jarima to'lashi kerak!</b>`;
     
-    await adminBot.telegram.sendMessage(process.env.ADMIN_CHAT_ID, message, {
-      parse_mode: 'HTML'
-    });
+    // Send to all admin IDs
+    for (const adminId of ADMIN_IDS) {
+      try {
+        await adminBot.telegram.sendMessage(adminId, message, {
+          parse_mode: 'HTML'
+        });
+      } catch (error) {
+        console.error(`❌ Error sending late cancellation penalty notification to admin ${adminId}:`, error);
+      }
+    }
   } catch (error) {
     console.error('❌ Error sending late cancellation penalty notification:', error);
   }
@@ -1368,7 +1387,7 @@ async function notifyLateCancellationPenalty(booking, user, reason, paymentPromi
  * Notify admin when a user's booking time is rescheduled
  */
 async function notifyReschedule(booking, user, oldHourStart, oldHourEnd) {
-  if (!adminBot || !process.env.ADMIN_CHAT_ID) return;
+  if (!adminBot || ADMIN_IDS.length === 0) return;
 
   try {
     const oldLabel = `${String(oldHourStart).padStart(2, '0')}:00–${String(oldHourEnd === 0 ? '00' : oldHourEnd).padStart(2, '0')}:00`;
@@ -1384,7 +1403,14 @@ async function notifyReschedule(booking, user, oldHourStart, oldHourEnd) {
       `📞 Telefon: ${phone}\n` +
       `🆔 Foydalanuvchi ID: ${user.userId}`;
 
-    await adminBot.telegram.sendMessage(process.env.ADMIN_CHAT_ID, message);
+    // Send to all admin IDs
+    for (const adminId of ADMIN_IDS) {
+      try {
+        await adminBot.telegram.sendMessage(adminId, message);
+      } catch (error) {
+        console.error(`❌ Error sending reschedule notification to admin ${adminId}:`, error);
+      }
+    }
   } catch (error) {
     console.error('❌ Error sending reschedule notification to admin:', error);
   }
@@ -1394,7 +1420,7 @@ async function notifyReschedule(booking, user, oldHourStart, oldHourEnd) {
  * Notify admin about weekly booking expiry
  */
 async function notifyAdminWeeklyExpiry(booking, user) {
-  if (!adminBot || !process.env.ADMIN_CHAT_ID) return;
+  if (!adminBot || ADMIN_IDS.length === 0) return;
   
   try {
     const timeLabel = `${String(booking.hourStart).padStart(2, '0')}:00–${String(booking.hourEnd).padStart(2, '0')}:00`;
@@ -1415,9 +1441,16 @@ async function notifyAdminWeeklyExpiry(booking, user) {
       `Foydalanuvchiga ogohlantirish xabari yuborildi.\n\n` +
       `🆕 <b>Tavsiya:</b> Foydalanuvchi bilan bog'lanib yangi haftalik bron taklif qiling!`;
     
-    await adminBot.telegram.sendMessage(process.env.ADMIN_CHAT_ID, message, {
-      parse_mode: 'HTML'
-    });
+    // Send to all admin IDs
+    for (const adminId of ADMIN_IDS) {
+      try {
+        await adminBot.telegram.sendMessage(adminId, message, {
+          parse_mode: 'HTML'
+        });
+      } catch (error) {
+        console.error(`❌ Error sending weekly expiry notification to admin ${adminId}:`, error);
+      }
+    }
   } catch (error) {
     console.error('❌ Error sending weekly expiry notification to admin:', error);
   }
@@ -1427,7 +1460,7 @@ async function notifyAdminWeeklyExpiry(booking, user) {
  * Notify admin that user is ready to pay penalty
  */
 async function notifyAdminPaymentReady(booking, user) {
-  if (!adminBot || !process.env.ADMIN_CHAT_ID) return;
+  if (!adminBot || ADMIN_IDS.length === 0) return;
   
   try {
     const timeLabel = `${String(booking.hourStart).padStart(2, '0')}:00–${String(booking.hourEnd).padStart(2, '0')}:00`;
@@ -1448,6 +1481,14 @@ async function notifyAdminPaymentReady(booking, user) {
       `Foydalanuvchi adminning Telegram lichkasiga to'lov skrinshotini yuboradi yoki admin bilan kelishib oladi.\n\n` +
       `To'lovni tasdiqlash uchun "Jarima belgilash" bo'limiga o'ting.`;
     
+    // Send to all admin IDs
+    for (const adminId of ADMIN_IDS) {
+      try {
+        await adminBot.telegram.sendMessage(adminId, message);
+      } catch (error) {
+        console.error(`❌ Error sending payment ready notification to admin ${adminId}:`, error);
+      }
+    }
   } catch (error) {
     console.error('❌ Error notifying admin about payment ready:', error);
   }
@@ -1457,12 +1498,19 @@ async function notifyAdminPaymentReady(booking, user) {
  * Post daily schedule to admin
  */
 async function postDailyScheduleToAdmin(scheduleText, date) {
-  if (!adminBot || !process.env.ADMIN_CHAT_ID) return;
+  if (!adminBot || ADMIN_IDS.length === 0) return;
   
   try {
-    await adminBot.telegram.sendMessage(process.env.ADMIN_CHAT_ID, scheduleText, {
-      parse_mode: 'HTML'
-    });
+    // Send to all admin IDs
+    for (const adminId of ADMIN_IDS) {
+      try {
+        await adminBot.telegram.sendMessage(adminId, scheduleText, {
+          parse_mode: 'HTML'
+        });
+      } catch (error) {
+        console.error(`❌ Error posting schedule to admin ${adminId}:`, error);
+      }
+    }
   } catch (error) {
     console.error('❌ Error posting schedule to admin:', error);
   }
