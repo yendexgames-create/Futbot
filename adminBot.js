@@ -4,8 +4,17 @@ const { createAdminReplyKeyboard, createAdminDateKeyboard, createAdminTimeKeyboa
 const Booking = require('./models/Booking');
 const User = require('./models/User');
 const { notifyChannelBooking } = require('./cron/schedule');
-const { sendBookingNotification, sendCancellationNotification } = require('./monitoringBot');
 require('dotenv').config();
+
+// Import monitoring functions dynamically
+let sendBookingNotification, sendCancellationNotification;
+try {
+  const monitoringBot = require('./monitoringBot');
+  sendBookingNotification = monitoringBot.sendBookingNotification;
+  sendCancellationNotification = monitoringBot.sendCancellationNotification;
+} catch (error) {
+  console.log('Monitoring bot functions not available:', error.message);
+}
 
 let adminBot = null;
 // Support multiple admin chat IDs via environment variable.
@@ -550,7 +559,9 @@ function initAdminBot() {
           };
           
           try {
-            await sendCancellationNotification(adminChatId, bookingInfo, adminName, `Admin ${adminName} tomonidan haftalik bron bekor qilindi`);
+            if (sendCancellationNotification) {
+              await sendCancellationNotification(adminChatId, bookingInfo, adminName, `Admin ${adminName} tomonidan haftalik bron bekor qilindi`);
+            }
           } catch (error) {
             console.error('Error sending to monitoring bot:', error);
           }
@@ -596,7 +607,9 @@ function initAdminBot() {
         };
         
         try {
-          await sendCancellationNotification(adminChatId, bookingInfo, adminName, `Admin ${adminName} tomonidan bekor qilindi`);
+          if (sendCancellationNotification) {
+            await sendCancellationNotification(adminChatId, bookingInfo, adminName, `Admin ${adminName} tomonidan bekor qilindi`);
+          }
         } catch (error) {
           console.error('Error sending to monitoring bot:', error);
         }
