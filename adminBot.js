@@ -153,6 +153,19 @@ function initAdminBot() {
     try {
       // Admin book button -> choose booking mode first
       if (data === 'admin_book') {
+        // Check if user has permission to book stadium
+        const allowedChatId = '739525204';
+        if (adminChatId.toString() !== allowedChatId) {
+          await ctx.answerCbQuery('Ruxsat yo\'q!');
+          await ctx.reply(
+            '❌ <b>Ruxsat yo\'q!</b>\n\n' +
+            'Siz stadion bron qilish uchun ruxsatga ega emassiz.\n' +
+            'Bu funksiyadan faqat ruxsat etilgan foydalanuvchi foydalanishi mumkin.',
+            { parse_mode: 'HTML' }
+          );
+          return;
+        }
+        
         await ctx.answerCbQuery();
         await ctx.editMessageText(
           'Bron turini tanlang:',
@@ -307,17 +320,36 @@ function initAdminBot() {
 
       // Admin booking mode selection
       else if (data === 'admin_booking_mode_daily') {
+        // Check permission
+        const allowedChatId = '739525204';
+        if (adminChatId.toString() !== allowedChatId) {
+          await ctx.answerCbQuery('Ruxsat yo\'q!');
+          return;
+        }
+        
         adminBookingModes.set(adminChatId, 'daily');
         await ctx.answerCbQuery('Bir kunlik yozdirish rejimi tanlandi.');
         await ctx.editMessageText(
-          '📅 <b>Stadioni yozdirish uchun sanani tanlang:</b>',
-          {
-            ...createAdminDateKeyboard(),
-            parse_mode: 'HTML'
-          }
+          'Stadionni bron qilish uchun kunni tanlang:',
+          createAdminDateKeyboard()
         );
       }
-
+      else if (data === 'admin_booking_mode_weekly') {
+        // Check permission
+        const allowedChatId = '739525204';
+        if (adminChatId.toString() !== allowedChatId) {
+          await ctx.answerCbQuery('Ruxsat yo\'q!');
+          return;
+        }
+        
+        adminBookingModes.set(adminChatId, 'weekly');
+        await ctx.answerCbQuery('Haftalik yozdirish rejimi tanlandi.');
+        await ctx.editMessageText(
+          'Stadionni haftalik bron qilish uchun kunni tanlang:',
+          createAdminDateKeyboard()
+        );
+      }
+      
       // Admin block menu
       else if (data === 'admin_block_menu') {
         await ctx.answerCbQuery();
@@ -1365,6 +1397,18 @@ function initAdminBot() {
       
       // Handle Reply Keyboard buttons
       if (text === '📝📝📝 STADIONI YOZDIRISH 📝📝📝' || text === '📝 Stadioni yozdirish') {
+        // Check if user has permission to book stadium
+        const allowedChatId = '739525204';
+        if (adminChatId.toString() !== allowedChatId) {
+          await ctx.reply(
+            '❌ <b>Ruxsat yo\'q!</b>\n\n' +
+            'Siz stadion bron qilish uchun ruxsatga ega emassiz.\n' +
+            'Bu funksiyadan faqat ruxsat etilgan foydalanuvchi foydalanishi mumkin.',
+            { parse_mode: 'HTML' }
+          );
+          return;
+        }
+        
         await ctx.reply('Bron turini tanlang:', getAdminBookingModeKeyboard());
       } else if (text === '📊 Joylarni ko\'rish') {
         const weekStart = getWeekStart();
