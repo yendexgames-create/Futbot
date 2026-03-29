@@ -334,24 +334,34 @@ function initAdminBot() {
         );
       }
       
-      // Admin date selection
-      else if (data.startsWith('admin_date_')) {
-        const dateStr = data.replace('admin_date_', '');
-        // Parse date string (YYYY-MM-DD) as local date, not UTC
-        const [year, month, day] = dateStr.split('-').map(Number);
-        const selectedDate = new Date(year, month - 1, day);
+      // Handle date selection
+      if (data.startsWith('admin_date_') || data.startsWith('admin_penalty_date_')) {
+        const dateStr = data.replace(/^admin_(penalty_)?date_/, '');
+        // Parse date string (YYYY-MM-DD) correctly
+        const date = new Date(dateStr + 'T00:00:00');
+        
+        if (isPastDate(date)) {
+          await ctx.answerCbQuery('Bu kun allaqachon o\'tib ketgan.');
+          await ctx.reply(
+            '❌ Bu kun allaqachon o\'tib ketgan.\nIltimos, boshqa sanani tanlang.',
+            createAdminReplyKeyboard()
+          );
+          return;
+        }
+        
+        const keyboard = createAdminTimeKeyboard(dateStr);
+        const dayName = formatDateShort(date);
         
         await ctx.answerCbQuery();
         await ctx.editMessageText(
-          `📅 <b>Sana:</b> ${formatDate(selectedDate)}\n\n` +
-          `⏰ <b>Vaqtni tanlang:</b>`,
+          `📅 <b>${dayName}</b>\n\nVaqt tanlang:`,
           {
-            ...createAdminTimeKeyboard(dateStr),
+            ...keyboard,
             parse_mode: 'HTML'
           }
         );
       }
-      
+
       // Admin time selection
       else if (data.startsWith('admin_time_')) {
         const parts = data.replace('admin_time_', '').split('_');
@@ -359,7 +369,7 @@ function initAdminBot() {
         const hourStart = parseInt(parts[1]);
         const hourEnd = parseInt(parts[2]);
         
-        // Parse date string (YYYY-MM-DD) as local date, not UTC
+        // Parse date string (YYYY-MM-DD) correctly
         const [year, month, day] = dateStr.split('-').map(Number);
         const selectedDate = new Date(year, month - 1, day);
         
@@ -387,7 +397,7 @@ function initAdminBot() {
         
         await ctx.answerCbQuery();
         await ctx.editMessageText(
-          `📝 <b>Faqat telefon raqamni kiriting:</b>\n\n` +
+          `📝 <b>Faqat telefon raqamini kiriting:</b>\n\n` +
           `Masalan: +998901234567`,
           {
             reply_markup: {
@@ -431,8 +441,8 @@ function initAdminBot() {
       // Admin schedule week navigation
       else if (data.startsWith('admin_schedule_week_')) {
         const dateStr = data.replace('admin_schedule_week_', '');
-        const [year, month, day] = dateStr.split('-').map(Number);
-        const weekStart = new Date(year, month - 1, day);
+        // Parse date string (YYYY-MM-DD) correctly
+        const weekStart = new Date(dateStr + 'T00:00:00');
         
         await ctx.answerCbQuery('Jadval yuklanmoqda...');
         

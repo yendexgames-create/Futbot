@@ -205,9 +205,8 @@ bot.on('callback_query', async (ctx) => {
     // Handle day selection
     if (data.startsWith('day_')) {
       const dateStr = data.replace('day_', '');
-      // Parse date string (YYYY-MM-DD) as local date, not UTC
-      const [year, month, day] = dateStr.split('-').map(Number);
-      const selectedDate = new Date(year, month - 1, day);
+      // Parse date string (YYYY-MM-DD) correctly
+      const selectedDate = new Date(dateStr + 'T00:00:00');
       
       if (isPastDate(selectedDate)) {
         await ctx.answerCbQuery('Bu kun allaqachon o\'tib ketgan.');
