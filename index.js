@@ -1183,13 +1183,48 @@ bot.launch().then(() => {
   
   // Start monitoring bot
   try {
-    require('./monitoringBot');
-    console.log('✅ Monitoring bot started');
+    const { monitoringBot } = require('./monitoringBot');
+    monitoringBot.launch()
+      .then(() => {
+        console.log('✅ Monitoring bot started');
+      })
+      .catch((error) => {
+        console.error('❌ Error starting monitoring bot:', error);
+      });
   } catch (error) {
-    console.error('❌ Error starting monitoring bot:', error);
+    console.error('❌ Error loading monitoring bot:', error);
   }
 }).catch((error) => {
   console.error('❌ Error starting bot:', error);
   process.exit(1);
+});
+
+// Graceful shutdown for both bots
+process.once('SIGINT', () => {
+  console.log('Received SIGINT, shutting down gracefully...');
+  bot.stop('SIGINT');
+  
+  try {
+    const { monitoringBot } = require('./monitoringBot');
+    monitoringBot.stop('SIGINT');
+  } catch (error) {
+    console.error('Error stopping monitoring bot:', error);
+  }
+  
+  process.exit(0);
+});
+
+process.once('SIGTERM', () => {
+  console.log('Received SIGTERM, shutting down gracefully...');
+  bot.stop('SIGTERM');
+  
+  try {
+    const { monitoringBot } = require('./monitoringBot');
+    monitoringBot.stop('SIGTERM');
+  } catch (error) {
+    console.error('Error stopping monitoring bot:', error);
+  }
+  
+  process.exit(0);
 });
 

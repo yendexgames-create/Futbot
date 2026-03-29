@@ -516,19 +516,21 @@ monitoringBot.catch((err, ctx) => {
   console.error('Monitoring bot error:', err);
 });
 
-// Start the bot
-monitoringBot.launch()
-  .then(() => {
-    console.log('✅ Stadium Monitoring Bot started successfully!');
-    console.log(`👤 Admin Chat ID: ${ADMIN_CHAT_ID}`);
-  })
-  .catch((error) => {
-    console.error('❌ Error starting monitoring bot:', error);
-  });
+// Start the bot (only when not required from index.js)
+if (require.main === module) {
+  monitoringBot.launch()
+    .then(() => {
+      console.log('✅ Stadium Monitoring Bot started successfully!');
+      console.log(`👤 Admin Chat ID: ${ADMIN_CHAT_ID}`);
+    })
+    .catch((error) => {
+      console.error('❌ Error starting monitoring bot:', error);
+    });
 
-// Graceful shutdown
-process.once('SIGINT', () => monitoringBot.stop('SIGINT'));
-process.once('SIGTERM', () => monitoringBot.stop('SIGTERM'));
+  // Graceful shutdown
+  process.once('SIGINT', () => monitoringBot.stop('SIGINT'));
+  process.once('SIGTERM', () => monitoringBot.stop('SIGTERM'));
+}
 
 // Export functions for use in admin bot
 module.exports = {
