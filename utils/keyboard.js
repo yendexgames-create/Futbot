@@ -2,6 +2,11 @@ const { Markup } = require('telegraf');
 const { getWeekDays, formatDate, formatDateShort, formatWeekRange, isPastDate, getTimeSlots } = require('./time');
 const Booking = require('../models/Booking');
 
+// Export createMainKeyboard
+module.exports = {
+  createMainKeyboard
+};
+
 /**
  * Create main menu keyboard with week days
  */
