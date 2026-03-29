@@ -128,7 +128,7 @@ function getUserBookingMode(userId) {
 
 // Helper to create weekly recurring bookings up to ~1 month ahead
 async function createWeeklyBookings(userId, firstDate, hourStart, hourEnd, weeklyGroupId) {
-  // Limit weekly series to approximately 1 month (30 days) from the first date
+  // Limit weekly series to approximately 1 month (30 days) from first date
   const startDate = new Date(firstDate);
   startDate.setHours(0, 0, 0, 0);
   const endDate = new Date(startDate);
@@ -138,7 +138,10 @@ async function createWeeklyBookings(userId, firstDate, hourStart, hourEnd, weekl
     const date = new Date(d);
 
     // Skip past dates just in case
-    if (isPastDate(date)) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (date < today) {
+      console.log(`Skipping past date: ${formatDate(date)}`);
       continue;
     }
 
@@ -151,6 +154,7 @@ async function createWeeklyBookings(userId, firstDate, hourStart, hourEnd, weekl
     });
 
     if (existingBooking) {
+      console.log(`Slot already booked: ${formatDate(date)} ${hourStart}:00`);
       continue;
     }
 
@@ -163,6 +167,8 @@ async function createWeeklyBookings(userId, firstDate, hourStart, hourEnd, weekl
       isWeekly: true,
       weeklyGroupId
     });
+    
+    console.log(`Weekly booking created: ${formatDate(date)} ${hourStart}:00-${hourEnd}:00`);
   }
 }
 

@@ -45,7 +45,7 @@ function getAdminBookingModeKeyboard() {
 }
 
 async function createWeeklyBookingsForAdmin(userId, firstDate, hourStart, hourEnd, weeklyGroupId) {
-  // Limit admin weekly series to approximately 1 month (30 days) from the first date
+  // Limit admin weekly series to approximately 1 month (30 days) from first date
   const startDate = new Date(firstDate);
   startDate.setHours(0, 0, 0, 0);
   const endDate = new Date(startDate);
@@ -53,13 +53,6 @@ async function createWeeklyBookingsForAdmin(userId, firstDate, hourStart, hourEn
 
   for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 7)) {
     const date = new Date(d);
-
-    // Skip past dates just in case
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    if (date < today) {
-      continue;
-    }
 
     // Check if slot is already booked
     const existingBooking = await Booking.findOne({
@@ -70,6 +63,7 @@ async function createWeeklyBookingsForAdmin(userId, firstDate, hourStart, hourEn
     });
 
     if (existingBooking) {
+      console.log(`Slot already booked: ${formatDate(date)} ${hourStart}:00`);
       continue;
     }
 
@@ -82,6 +76,8 @@ async function createWeeklyBookingsForAdmin(userId, firstDate, hourStart, hourEn
       isWeekly: true,
       weeklyGroupId
     });
+    
+    console.log(`Admin weekly booking created: ${formatDate(date)} ${hourStart}:00-${hourEnd}:00`);
   }
 }
 
