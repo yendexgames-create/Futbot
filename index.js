@@ -252,17 +252,11 @@ bot.on('callback_query', async (ctx) => {
         return;
       }
       
-      // For weekly booking, check if any daily booking exists for this day/time in next 8 weeks
+      // For weekly booking, check if any daily booking exists for this specific day/time
       const bookingMode = getUserBookingMode(userId);
       if (bookingMode === 'weekly') {
-        const eightWeeksLater = new Date(selectedDate);
-        eightWeeksLater.setDate(eightWeeksLater.getDate() + 8 * 7);
-        
         const conflictingDailyBooking = await Booking.findOne({
-          date: {
-            $gte: selectedDate,
-            $lt: eightWeeksLater
-          },
+          date: selectedDate, // Only check the specific selected date
           hourStart,
           hourEnd,
           status: 'booked',
