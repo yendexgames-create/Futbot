@@ -1,5 +1,5 @@
 const { Telegraf, Markup } = require('telegraf');
-const { formatDate, getWeekStart } = require('./utils/time');
+const { formatDate, getWeekStart, isPastDate } = require('./utils/time');
 const { createAdminReplyKeyboard, createAdminDateKeyboard, createAdminTimeKeyboard, getWeekSchedule, getWeekScheduleExcludingPast } = require('./utils/adminKeyboard');
 const Booking = require('./models/Booking');
 const User = require('./models/User');
