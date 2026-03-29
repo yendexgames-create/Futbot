@@ -646,7 +646,7 @@ function initAdminBot() {
           };
           
           try {
-            await sendCancellationNotification(adminChatId, bookingInfo, adminName, 'Haftalik bron bekor qilindi');
+            await sendCancellationNotification(booking.userId, bookingInfo, adminName, 'Haftalik bron bekor qilindi');
           } catch (error) {
             console.error('Error sending to monitoring bot:', error);
           }
@@ -692,7 +692,7 @@ function initAdminBot() {
         };
         
         try {
-          await sendCancellationNotification(adminChatId, bookingInfo, adminName, 'Admin tomonidan bekor qilindi');
+          await sendCancellationNotification(booking.userId, bookingInfo, adminName, 'Admin tomonidan bekor qilindi');
         } catch (error) {
           console.error('Error sending to monitoring bot:', error);
         }
@@ -1331,7 +1331,7 @@ function initAdminBot() {
         };
         
         try {
-          await sendBookingNotification(adminChatId, bookingInfo, adminName);
+          await sendBookingNotification(adminUserId, bookingInfo, adminName);
         } catch (error) {
           console.error('Error sending to monitoring bot:', error);
         }
