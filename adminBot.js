@@ -13,8 +13,8 @@ let adminBot = null;
 // ADMIN_CHAT_IDS=123456789,987654321
 // For backward compatibility, single ADMIN_CHAT_ID is also supported.
 const ADMIN_IDS = (() => {
-  // Faqat 2 ta chat ID ga ruxsat
-  const allowedIds = ['739525204', '7386008809'];
+  // Uchta chat ID ga ruxsat
+  const allowedIds = ['739525204', '7439840181', '7386008809'];
   return allowedIds;
 })();
 

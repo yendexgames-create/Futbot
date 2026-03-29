@@ -137,14 +137,6 @@ async function createWeeklyBookings(userId, firstDate, hourStart, hourEnd, weekl
   for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 7)) {
     const date = new Date(d);
 
-    // Skip past dates just in case
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    if (date < today) {
-      console.log(`Skipping past date: ${formatDate(date)}`);
-      continue;
-    }
-
     // Check if slot is already booked
     const existingBooking = await Booking.findOne({
       userId,
