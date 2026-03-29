@@ -314,6 +314,65 @@ function initAdminBot() {
         );
       }
 
+      // Admin view schedule
+      else if (data === 'admin_view_schedule') {
+        await ctx.answerCbQuery('Jadval yuklanmoqda...');
+        
+        const weekStart = getWeekStart();
+        const schedule = await getWeekScheduleExcludingPast(weekStart);
+        
+        // Calculate next and previous week
+        const nextWeekStart = new Date(weekStart);
+        nextWeekStart.setDate(nextWeekStart.getDate() + 7);
+        const prevWeekStart = new Date(weekStart);
+        prevWeekStart.setDate(prevWeekStart.getDate() - 7);
+        
+        const buttons = [];
+        if (prevWeekStart >= getWeekStart(new Date())) {
+          buttons.push([Markup.button.callback('⬅️ Oldingi hafta', `admin_schedule_week_${prevWeekStart.toISOString().split('T')[0]}`)]);
+        }
+        buttons.push([Markup.button.callback('➡️ Keyingi hafta', `admin_schedule_week_${nextWeekStart.toISOString().split('T')[0]}`)]);
+        buttons.push([Markup.button.callback('🔙 Orqaga', 'admin_back')]);
+        
+        const message = `📊 <b>Haftalik jadval</b>\n\n${schedule || 'O\'tib ketgan kunlar ko\'rsatilmaydi.'}`;
+        
+        await ctx.editMessageText(message, {
+          reply_markup: { inline_keyboard: buttons },
+          parse_mode: 'HTML'
+        });
+      }
+      
+      // Admin schedule week navigation
+      else if (data.startsWith('admin_schedule_week_')) {
+        const dateStr = data.replace('admin_schedule_week_', '');
+        const [year, month, day] = dateStr.split('-').map(Number);
+        const weekStart = new Date(year, month - 1, day);
+        
+        await ctx.answerCbQuery('Jadval yuklanmoqda...');
+        
+        const schedule = await getWeekScheduleExcludingPast(weekStart);
+        
+        // Calculate next and previous week
+        const nextWeekStart = new Date(weekStart);
+        nextWeekStart.setDate(nextWeekStart.getDate() + 7);
+        const prevWeekStart = new Date(weekStart);
+        prevWeekStart.setDate(prevWeekStart.getDate() - 7);
+        
+        const buttons = [];
+        if (prevWeekStart >= getWeekStart(new Date())) {
+          buttons.push([Markup.button.callback('⬅️ Oldingi hafta', `admin_schedule_week_${prevWeekStart.toISOString().split('T')[0]}`)]);
+        }
+        buttons.push([Markup.button.callback('➡️ Keyingi hafta', `admin_schedule_week_${nextWeekStart.toISOString().split('T')[0]}`)]);
+        buttons.push([Markup.button.callback('🔙 Orqaga', 'admin_back')]);
+        
+        const message = `📊 <b>Haftalik jadval</b>\n\n${schedule || 'O\'tib ketgan kunlar ko\'rsatilmaydi.'}`;
+        
+        await ctx.editMessageText(message, {
+          reply_markup: { inline_keyboard: buttons },
+          parse_mode: 'HTML'
+        });
+      }
+
       // Admin cancel booking - choose daily vs weekly
       else if (data === 'admin_cancel_booking') {
         await ctx.answerCbQuery();

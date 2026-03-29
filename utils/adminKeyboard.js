@@ -183,10 +183,15 @@ async function getWeekScheduleExcludingPast(weekStart = new Date()) {
     const { isPastDate } = require('./time');
     const weekDays = getWeekDays(weekStart);
     let schedule = '';
+    let hasAnyDay = false;
     
     for (const day of weekDays) {
-      // Skip past days
-      if (isPastDate(day)) {
+      // Skip past days only for current week, not for future weeks
+      const today = new Date();
+      const currentWeekStart = getWeekStart(today);
+      const isCurrentWeek = Math.abs(weekStart - currentWeekStart) < 7 * 24 * 60 * 60 * 1000;
+      
+      if (isCurrentWeek && isPastDate(day)) {
         continue;
       }
       
@@ -195,9 +200,10 @@ async function getWeekScheduleExcludingPast(weekStart = new Date()) {
       const daySchedule = await getDaySchedule(day);
       
       schedule += `\n📅 <b>${dayName} (${formatDate(day)})</b>\n${daySchedule}\n`;
+      hasAnyDay = true;
     }
     
-    return schedule;
+    return hasAnyDay ? schedule : 'Bu hafta uchun ko\'rsatiladigan jadval yo\'q.';
   } catch (error) {
     console.error('Error in getWeekScheduleExcludingPast:', error);
     throw error;
