@@ -127,7 +127,7 @@ function initAdminBot() {
       
       // Faqat Reply Keyboard (asosiy menu)
       await ctx.reply(welcomeMessage, {
-        ...createAdminReplyKeyboard(),
+        ...createAdminReplyKeyboard(ctx.chatId),
         parse_mode: 'HTML'
       });
     } catch (error) {
@@ -153,16 +153,9 @@ function initAdminBot() {
     try {
       // Admin book button -> choose booking mode first
       if (data === 'admin_book') {
-        // Check if user has permission to book stadium
-        const allowedChatId = '739525204';
-        if (adminChatId.toString() !== allowedChatId) {
-          await ctx.answerCbQuery('Ruxsat yo\'q!');
-          await ctx.reply(
-            '❌ <b>Ruxsat yo\'q!</b>\n\n' +
-            'Siz stadion bron qilish uchun ruxsatga ega emassiz.\n' +
-            'Bu funksiyadan faqat ruxsat etilgan foydalanuvchi foydalanishi mumkin.',
-            { parse_mode: 'HTML' }
-          );
+        // Check if user is super admin (7386008809)
+        if (ctx.chatId.toString() !== '7386008809') {
+          await ctx.answerCbQuery('❌ Sizda stadion yozdirish huquqi yo\'q.');
           return;
         }
         
@@ -320,36 +313,17 @@ function initAdminBot() {
 
       // Admin booking mode selection
       else if (data === 'admin_booking_mode_daily') {
-        // Check permission
-        const allowedChatId = '739525204';
-        if (adminChatId.toString() !== allowedChatId) {
-          await ctx.answerCbQuery('Ruxsat yo\'q!');
-          return;
-        }
-        
         adminBookingModes.set(adminChatId, 'daily');
         await ctx.answerCbQuery('Bir kunlik yozdirish rejimi tanlandi.');
         await ctx.editMessageText(
-          'Stadionni bron qilish uchun kunni tanlang:',
-          createAdminDateKeyboard()
+          '📅 <b>Stadioni yozdirish uchun sanani tanlang:</b>',
+          {
+            ...createAdminDateKeyboard(),
+            parse_mode: 'HTML'
+          }
         );
       }
-      else if (data === 'admin_booking_mode_weekly') {
-        // Check permission
-        const allowedChatId = '739525204';
-        if (adminChatId.toString() !== allowedChatId) {
-          await ctx.answerCbQuery('Ruxsat yo\'q!');
-          return;
-        }
-        
-        adminBookingModes.set(adminChatId, 'weekly');
-        await ctx.answerCbQuery('Haftalik yozdirish rejimi tanlandi.');
-        await ctx.editMessageText(
-          'Stadionni haftalik bron qilish uchun kunni tanlang:',
-          createAdminDateKeyboard()
-        );
-      }
-      
+
       // Admin block menu
       else if (data === 'admin_block_menu') {
         await ctx.answerCbQuery();
@@ -541,7 +515,7 @@ function initAdminBot() {
           await ctx.editMessageText(
             '❌ Kunlik yozdirilgan bronlar topilmadi.',
             {
-              ...createAdminReplyKeyboard(),
+              ...createAdminReplyKeyboard(ctx.chatId),
               parse_mode: 'HTML'
             }
           );
@@ -599,7 +573,7 @@ function initAdminBot() {
           await ctx.editMessageText(
             '❌ Haftalik yozdirilgan bronlar topilmadi.',
             {
-              ...createAdminReplyKeyboard(),
+              ...createAdminReplyKeyboard(ctx.chatId),
               parse_mode: 'HTML'
             }
           );
@@ -694,7 +668,7 @@ function initAdminBot() {
           `✅ Haftalik bronlar muvaffaqiyatli bekor qilindi.\n\n` +
           `Endi ushbu haftalik bron uchun kelajakdagi barcha sanalar bo'shatildi.`,
           {
-            ...createAdminReplyKeyboard(),
+            ...createAdminReplyKeyboard(ctx.chatId),
             parse_mode: 'HTML'
           }
         );
@@ -753,7 +727,7 @@ function initAdminBot() {
             `👤 Foydalanuvchi: ${user ? (user.username ? `@${user.username}` : user.firstName || 'Noma\'lum') : 'Noma\'lum'}\n\n` +
             `❌ Faol bronlar qolmadi.`,
             {
-              ...createAdminReplyKeyboard(),
+              ...createAdminReplyKeyboard(ctx.chatId),
               parse_mode: 'HTML'
             }
           );
@@ -813,7 +787,7 @@ function initAdminBot() {
           await ctx.editMessageText(
             `❌ Bugungi kun uchun band bronlar topilmadi.`,
             {
-              ...createAdminReplyKeyboard(),
+              ...createAdminReplyKeyboard(ctx.chatId),
               parse_mode: 'HTML'
             }
           );
@@ -942,7 +916,7 @@ function initAdminBot() {
             `💰 Jarima: ${booking.penaltyAmount.toLocaleString()} so'm\n\n` +
             `❌ Bugungi kun uchun boshqa band bronlar qolmadi.`,
             {
-              ...createAdminReplyKeyboard(),
+              ...createAdminReplyKeyboard(ctx.chatId),
               parse_mode: 'HTML'
             }
           );
@@ -1013,7 +987,7 @@ function initAdminBot() {
           await ctx.editMessageText(
             '❌ Bugungi kun uchun jarima belgilangan bronlar topilmadi.',
             {
-              ...createAdminReplyKeyboard(),
+              ...createAdminReplyKeyboard(ctx.chatId),
               parse_mode: 'HTML'
             }
           );
@@ -1083,7 +1057,7 @@ function initAdminBot() {
             `💰 <b>Jarima:</b> ${booking.penaltyAmount.toLocaleString()} so'm\n\n` +
             `✅ To'lov qabul qilingan va foydalanuvchiga xabar yuborilgan.`,
             {
-              ...createAdminReplyKeyboard(),
+              ...createAdminReplyKeyboard(ctx.chatId),
               parse_mode: 'HTML'
             }
           );
@@ -1156,7 +1130,7 @@ function initAdminBot() {
           `💰 <b>Jarima:</b> ${booking.penaltyAmount.toLocaleString()} so'm\n\n` +
           `Foydalanuvchiga xabar yuborildi.`,
           {
-            ...createAdminMainKeyboard(),
+            ...createAdminMainKeyboard(ctx.chatId),
             parse_mode: 'HTML'
           }
         );
@@ -1196,7 +1170,7 @@ function initAdminBot() {
         await ctx.editMessageText(
           '✅ <b>To\'lov qabul qilindi va foydalanuvchiga xabar yuborildi!</b>',
           {
-            ...createAdminMainKeyboard(),
+            ...createAdminMainKeyboard(ctx.chatId),
             parse_mode: 'HTML'
           }
         );
@@ -1234,7 +1208,7 @@ function initAdminBot() {
         await ctx.editMessageText(
           '❌ <b>To\'lov rad etildi va foydalanuvchiga xabar yuborildi!</b>',
           {
-            ...createAdminMainKeyboard(),
+            ...createAdminMainKeyboard(ctx.chatId),
             parse_mode: 'HTML'
           }
         );
@@ -1247,7 +1221,7 @@ function initAdminBot() {
           `👋 <b>Admin panel</b>\n\n` +
           `Quyidagi funksiyalardan foydalaning:`,
           {
-            ...createAdminReplyKeyboard(),
+            ...createAdminReplyKeyboard(ctx.chatId),
             parse_mode: 'HTML'
           }
         );
@@ -1386,7 +1360,7 @@ function initAdminBot() {
         await ctx.reply(
           successMessage,
           {
-            ...createAdminReplyKeyboard(),
+            ...createAdminReplyKeyboard(ctx.chatId),
             parse_mode: 'HTML'
           }
         );
@@ -1397,18 +1371,11 @@ function initAdminBot() {
       
       // Handle Reply Keyboard buttons
       if (text === '📝📝📝 STADIONI YOZDIRISH 📝📝📝' || text === '📝 Stadioni yozdirish') {
-        // Check if user has permission to book stadium
-        const allowedChatId = '739525204';
-        if (adminChatId.toString() !== allowedChatId) {
-          await ctx.reply(
-            '❌ <b>Ruxsat yo\'q!</b>\n\n' +
-            'Siz stadion bron qilish uchun ruxsatga ega emassiz.\n' +
-            'Bu funksiyadan faqat ruxsat etilgan foydalanuvchi foydalanishi mumkin.',
-            { parse_mode: 'HTML' }
-          );
+        // Check if user is super admin (7386008809)
+        if (ctx.chatId.toString() !== '7386008809') {
+          await ctx.reply('❌ Sizda stadion yozdirish huquqi yo\'q.');
           return;
         }
-        
         await ctx.reply('Bron turini tanlang:', getAdminBookingModeKeyboard());
       } else if (text === '📊 Joylarni ko\'rish') {
         const weekStart = getWeekStart();
@@ -1459,7 +1426,7 @@ function initAdminBot() {
         
         if (bookings.length === 0) {
           await ctx.reply(`❌ Bugungi kun uchun band bronlar topilmadi.`, {
-            ...createAdminReplyKeyboard(),
+            ...createAdminReplyKeyboard(ctx.chatId),
             parse_mode: 'HTML'
           });
           return;

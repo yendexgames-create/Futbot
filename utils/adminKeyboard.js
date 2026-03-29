@@ -6,25 +6,45 @@ const User = require('../models/User');
 /**
  * Create admin main menu keyboard (Inline)
  */
-function createAdminMainKeyboard() {
-  return Markup.inlineKeyboard([
-    [Markup.button.callback('📝📝📝 STADIONI YOZDIRISH 📝📝📝', 'admin_book')],
+function createAdminMainKeyboard(adminChatId = null) {
+  const isSuperAdmin = adminChatId && adminChatId.toString() === '7386008809';
+  
+  const buttons = [];
+  
+  // Add stadium booking button only for super admin
+  if (isSuperAdmin) {
+    buttons.push([Markup.button.callback('📝📝📝 STADIONI YOZDIRISH 📝📝📝', 'admin_book')]);
+  }
+  
+  buttons.push(
     [Markup.button.callback('📊 Joylarni ko\'rish', 'admin_view_schedule')],
     [Markup.button.callback('❌ Bronlarni bekor qilish', 'admin_cancel_booking')],
     [Markup.button.callback('💰 Jarima belgilash', 'admin_penalty')],
     [Markup.button.callback('🚫 Bloklash', 'admin_block_menu')]
-  ]);
+  );
+  
+  return Markup.inlineKeyboard(buttons);
 }
 
 /**
  * Create admin reply keyboard (always visible)
  */
-function createAdminReplyKeyboard() {
-  return Markup.keyboard([
-    ['📝📝📝 STADIONI YOZDIRISH 📝📝📝'],
+function createAdminReplyKeyboard(adminChatId = null) {
+  const isSuperAdmin = adminChatId && adminChatId.toString() === '7386008809';
+  
+  const buttons = [];
+  
+  // Add stadium booking button only for super admin
+  if (isSuperAdmin) {
+    buttons.push(['📝📝📝 STADIONI YOZDIRISH 📝📝📝']);
+  }
+  
+  buttons.push(
     ['📊 Joylarni ko\'rish', '❌ Bronlarni bekor qilish'],
     ['💰 Jarima belgilash', '🚫 Bloklash']
-  ]).resize().persistent();
+  );
+  
+  return Markup.keyboard(buttons).resize().persistent();
 }
 
 /**
