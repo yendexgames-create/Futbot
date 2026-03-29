@@ -7,6 +7,17 @@ const User = require('./models/User');
 const { notifyChannelBooking } = require('./cron/schedule');
 require('dotenv').config();
 
+// Connect to MongoDB
+const mongoose = require('mongoose');
+mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/stadium-booking', {
+  useNewUrlParser: true,
+  useUnifiedTopology: true
+}).then(() => {
+  console.log('✅ Monitoring bot connected to MongoDB');
+}).catch((error) => {
+  console.error('❌ Monitoring bot MongoDB connection error:', error);
+});
+
 // Import createWeeklyBookings function
 async function createWeeklyBookings(userId, firstDate, hourStart, hourEnd, weeklyGroupId) {
   // Limit weekly series to approximately 1 month (30 days) from first date
@@ -421,7 +432,25 @@ monitoringBot.on('text', async (ctx) => {
       
       // Check if user exists with this phone
       const existingUser = await User.findOne({ phone });
-      const monitoringUserId = existingUser ? existingUser.userId : null;
+      
+      if (!existingUser) {
+        await ctx.reply(
+          '❌ Bu telefon raqami bilan foydalanuvchi topilmadi.\n\n' +
+          'Iltimos, avval botdan ro\'yxatdan o\'tganingizni tekshiring.\n' +
+          'Yoki boshqa telefon raqamini kiriting:',
+          {
+            reply_markup: {
+              inline_keyboard: [
+                [Markup.button.callback('🔙 Orqaga', 'monitoring_back')]
+              ]
+            },
+            parse_mode: 'HTML'
+          }
+        );
+        return;
+      }
+      
+      const monitoringUserId = existingUser.userId;
       
       // Create booking
       let booking;

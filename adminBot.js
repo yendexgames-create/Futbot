@@ -7,6 +7,17 @@ const { notifyChannelBooking } = require('./cron/schedule');
 const { sendBookingNotification, sendCancellationNotification } = require('./monitoringBot');
 require('dotenv').config();
 
+// Connect to MongoDB
+const mongoose = require('mongoose');
+mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/stadium-booking', {
+  useNewUrlParser: true,
+  useUnifiedTopology: true
+}).then(() => {
+  console.log('✅ Admin bot connected to MongoDB');
+}).catch((error) => {
+  console.error('❌ Admin bot MongoDB connection error:', error);
+});
+
 let adminBot = null;
 // Support multiple admin chat IDs via environment variable.
 // Example in .env:
