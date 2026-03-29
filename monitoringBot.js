@@ -7,17 +7,6 @@ const User = require('./models/User');
 const { notifyChannelBooking } = require('./cron/schedule');
 require('dotenv').config();
 
-// Connect to MongoDB
-const mongoose = require('mongoose');
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/stadium-booking', {
-  useNewUrlParser: true,
-  useUnifiedTopology: true
-}).then(() => {
-  console.log('✅ Monitoring bot connected to MongoDB');
-}).catch((error) => {
-  console.error('❌ Monitoring bot MongoDB connection error:', error);
-});
-
 // Import createWeeklyBookings function
 async function createWeeklyBookings(userId, firstDate, hourStart, hourEnd, weeklyGroupId) {
   // Limit weekly series to approximately 1 month (30 days) from first date
@@ -511,7 +500,7 @@ monitoringBot.on('text', async (ctx) => {
       
       // Notify channel
       try {
-        await notifyChannelBooking(date, hourStart, hourEnd);
+        await notifyChannelBooking(date, hourStart, hourEnd, monitoringUserId, existingUser.username || existingUser.firstName);
       } catch (notifyError) {
         console.error('Error notifying channel for monitoring booking:', notifyError);
       }
