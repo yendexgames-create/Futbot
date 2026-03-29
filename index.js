@@ -252,6 +252,29 @@ bot.on('callback_query', async (ctx) => {
         return;
       }
       
+      // For weekly booking, check if any daily booking exists for this day/time in next 8 weeks
+      const bookingMode = getUserBookingMode(userId);
+      if (bookingMode === 'weekly') {
+        const eightWeeksLater = new Date(selectedDate);
+        eightWeeksLater.setDate(eightWeeksLater.getDate() + 8 * 7);
+        
+        const conflictingDailyBooking = await Booking.findOne({
+          date: {
+            $gte: selectedDate,
+            $lt: eightWeeksLater
+          },
+          hourStart,
+          hourEnd,
+          status: 'booked',
+          isWeekly: { $ne: true } // Only check daily bookings
+        });
+        
+        if (conflictingDailyBooking) {
+          await ctx.answerCbQuery(`❌ Bu kun va vaqt uchun allaqachon kunlik bron mavjud!\n\n📅 Sana: ${formatDate(conflictingDailyBooking.date)}\n⏰ Vaqt: ${String(hourStart).padStart(2, '0')}:00–${String(hourEnd).padStart(2, '0')}:00\n\nKunlik bron borligi uchun haftalik bron qila olmaysiz.`);
+          return;
+        }
+      }
+      
       // Get user info
       let user = await User.findOne({ userId });
       if (!user) {
@@ -282,20 +305,18 @@ bot.on('callback_query', async (ctx) => {
         );
         
         // Store pending booking
-        const mode = getUserBookingMode(userId);
         userStates.set(userId, {
           type: 'booking',
           date: selectedDate,
           hourStart,
           hourEnd,
-          mode
+          mode: bookingMode
         });
         return;
       }
       
-      const mode = getUserBookingMode(userId);
       let booking;
-      if (mode === 'weekly') {
+      if (bookingMode === 'weekly') {
         // Check active weekly groups limit (max 3)
         const today = new Date();
         today.setHours(0, 0, 0, 0);

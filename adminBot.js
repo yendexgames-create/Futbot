@@ -419,14 +419,36 @@ function initAdminBot() {
           return;
         }
         
+        // For weekly booking, check if any daily booking exists for this day/time in next 8 weeks
+        const bookingMode = getAdminBookingMode(adminChatId);
+        if (bookingMode === 'weekly') {
+          const eightWeeksLater = new Date(selectedDate);
+          eightWeeksLater.setDate(eightWeeksLater.getDate() + 8 * 7);
+          
+          const conflictingDailyBooking = await Booking.findOne({
+            date: {
+              $gte: selectedDate,
+              $lt: eightWeeksLater
+            },
+            hourStart,
+            hourEnd,
+            status: 'booked',
+            isWeekly: { $ne: true } // Only check daily bookings
+          });
+          
+          if (conflictingDailyBooking) {
+            await ctx.answerCbQuery(`❌ Bu kun va vaqt uchun allaqachon kunlik bron mavjud!\n\n📅 Sana: ${formatDate(conflictingDailyBooking.date)}\n⏰ Vaqt: ${String(hourStart).padStart(2, '0')}:00–${String(hourEnd).padStart(2, '0')}:00\n\nKunlik bron borligi uchun haftalik bron qila olmaysiz.`);
+            return;
+          }
+        }
+        
         // Store booking info in state
-        const mode = getAdminBookingMode(adminChatId);
         adminStates.set(adminChatId, {
           type: 'admin_booking',
           date: selectedDate,
           hourStart,
           hourEnd,
-          mode
+          mode: bookingMode
         });
         
         await ctx.answerCbQuery();
