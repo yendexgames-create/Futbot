@@ -4,12 +4,12 @@ require('dotenv').config();
 // Monitoring bot initialization
 const monitoringBot = new Telegraf(process.env.MONITORING_BOT_TOKEN || '8799404582:AAHp8PWKH7vMbSn_LSms5tenhcpTKHt3oCQ');
 
-// Allowed admin ID (only you can use this bot)
-const ADMIN_CHAT_ID = process.env.MONITORING_ADMIN_CHAT_ID || '7386008809';
+// Allowed admin IDs (only these can use this bot)
+const ADMIN_CHAT_IDS = ['739525204', '7386008809'];
 
 // Check if user is admin
 function isAdmin(chatId) {
-  return chatId.toString() === ADMIN_CHAT_ID;
+  return ADMIN_CHAT_IDS.includes(chatId.toString());
 }
 
 // Start command
@@ -86,9 +86,12 @@ async function sendBookingNotification(chatId, bookingInfo, adminName) {
       `━━━━━━━━━━━━━━━━━━━━\n\n` +
       `✅ Stadion muvaffaqiyat bron qilindi!`;
     
-    await monitoringBot.telegram.sendMessage(ADMIN_CHAT_ID, message, {
-      parse_mode: 'HTML'
-    });
+    // Send to all admin IDs
+    for (const adminId of ADMIN_CHAT_IDS) {
+      await monitoringBot.telegram.sendMessage(adminId, message, {
+        parse_mode: 'HTML'
+      });
+    }
     
     console.log(`✅ Booking notification sent for chat ID: ${chatId}`);
   } catch (error) {
@@ -110,9 +113,12 @@ async function sendCancellationNotification(chatId, bookingInfo, adminName, reas
       `━━━━━━━━━━━━━━━━━━━━\n\n` +
       `⚠️ Stadion bron qilindi va bekor qilindi!`;
     
-    await monitoringBot.telegram.sendMessage(ADMIN_CHAT_ID, message, {
-      parse_mode: 'HTML'
-    });
+    // Send to all admin IDs
+    for (const adminId of ADMIN_CHAT_IDS) {
+      await monitoringBot.telegram.sendMessage(adminId, message, {
+        parse_mode: 'HTML'
+      });
+    }
     
     console.log(`✅ Cancellation notification sent for chat ID: ${chatId}`);
   } catch (error) {

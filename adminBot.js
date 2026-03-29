@@ -13,19 +13,9 @@ let adminBot = null;
 // ADMIN_CHAT_IDS=123456789,987654321
 // For backward compatibility, single ADMIN_CHAT_ID is also supported.
 const ADMIN_IDS = (() => {
-  const ids = [];
-  if (process.env.ADMIN_CHAT_ID) {
-    ids.push(process.env.ADMIN_CHAT_ID.toString());
-  }
-  if (process.env.ADMIN_CHAT_IDS) {
-    const extra = process.env.ADMIN_CHAT_IDS.split(',')
-      .map(id => id.trim())
-      .filter(Boolean)
-      .map(id => id.toString());
-    ids.push(...extra);
-  }
-  // Remove duplicates
-  return Array.from(new Set(ids));
+  // Faqat 2 ta chat ID ga ruxsat
+  const allowedIds = ['739525204', '7386008809'];
+  return allowedIds;
 })();
 
 function isAdmin(chatId) {

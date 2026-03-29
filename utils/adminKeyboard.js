@@ -163,6 +163,7 @@ async function getWeekSchedule(weekStart = new Date()) {
     let schedule = '';
     
     for (const day of weekDays) {
+      // JavaScript: 0=Yakshanba, 1=Dushanba, ..., 6=Shanba
       const dayNames = ['Yakshanba', 'Dushanba', 'Seshanba', 'Chorshanba', 'Payshanba', 'Juma', 'Shanba'];
       const dayName = dayNames[day.getDay()];
       const daySchedule = await getDaySchedule(day);
@@ -192,6 +193,7 @@ async function getWeekScheduleExcludingPast(weekStart = new Date()) {
         continue;
       }
       
+      // JavaScript: 0=Yakshanba, 1=Dushanba, ..., 6=Shanba
       const dayNames = ['Yakshanba', 'Dushanba', 'Seshanba', 'Chorshanba', 'Payshanba', 'Juma', 'Shanba'];
       const dayName = dayNames[day.getDay()];
       const daySchedule = await getDaySchedule(day);
