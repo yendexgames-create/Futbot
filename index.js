@@ -144,7 +144,6 @@ async function createWeeklyBookings(userId, firstDate, hourStart, hourEnd, weekl
 
     // Check if slot is already booked
     const existingBooking = await Booking.findOne({
-      userId,
       date: { $gte: date, $lt: new Date(date.getTime() + 24 * 60 * 60 * 1000) },
       hourStart,
       status: 'booked'
@@ -152,6 +151,19 @@ async function createWeeklyBookings(userId, firstDate, hourStart, hourEnd, weekl
 
     if (existingBooking) {
       continue;
+    }
+    
+    // For weekly booking, check if any daily booking exists for this day/time
+    const conflictingDailyBooking = await Booking.findOne({
+      date: { $gte: date, $lt: new Date(date.getTime() + 24 * 60 * 60 * 1000) },
+      hourStart,
+      hourEnd,
+      status: 'booked',
+      isWeekly: { $ne: true } // Only check daily bookings
+    });
+    
+    if (conflictingDailyBooking) {
+      continue; // Skip this week if daily booking exists
     }
 
     await Booking.create({
