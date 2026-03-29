@@ -1,6 +1,6 @@
 const { Telegraf, Markup } = require('telegraf');
 const { formatDate, getWeekStart } = require('./utils/time');
-const { createAdminReplyKeyboard, createAdminDateKeyboard, createAdminTimeKeyboard, getWeekSchedule, getWeekScheduleExcludingPast } = require('./utils/adminKeyboard');
+const { createAdminReplyKeyboard, createAdminDateKeyboard, createAdminTimeKeyboard, createWeekDayKeyboard, getWeekSchedule, getWeekScheduleExcludingPast } = require('./utils/adminKeyboard');
 const Booking = require('./models/Booking');
 const User = require('./models/User');
 const { notifyChannelBooking } = require('./cron/schedule');
@@ -216,10 +216,36 @@ function initAdminBot() {
         adminBookingModes.set(adminChatId, 'weekly');
         await ctx.answerCbQuery('Haftalik yozdirish rejimi tanlandi.');
         await ctx.editMessageText(
-          '📅 <b>Haftalik yozdirish uchun boshlanish sanasini tanlang:</b>\n\n' +
-          'Har hafta shu kuni stadion band bo\'ladi.',
+          '📅 <b>Haftalik yozdirish uchun hafta kunini tanlang:</b>\n\n' +
+          'Har hafta shu kun stadion band bo\'ladi.',
           {
-            ...createAdminDateKeyboard(),
+            ...createWeekDayKeyboard(),
+            parse_mode: 'HTML'
+          }
+        );
+      }
+
+      // Admin weekday selection for weekly booking
+      else if (data.startsWith('admin_weekday_')) {
+        const weekDay = parseInt(data.replace('admin_weekday_', ''));
+        const weekDayNames = ['Yakshanba', 'Dushanba', 'Seshanba', 'Chorshanba', 'Payshanba', 'Juma', 'Shanba'];
+        const weekDayName = weekDayNames[weekDay];
+        
+        // Store selected weekday
+        adminStates.set(adminChatId, {
+          type: 'admin_booking',
+          weekDay: weekDay,
+          mode: 'weekly'
+        });
+        
+        await ctx.answerCbQuery(`${weekDayName} tanlandi.`);
+        await ctx.editMessageText(
+          `⏰ <b>Vaqt tanlang:</b>\n\n` +
+          `📅 Hafta kuni: ${weekDayName}\n` +
+          `📝 Tur: Haftalik bron\n\n` +
+          `Har hafta shu kun shu vaqtda maydon band bo\'ladi.`,
+          {
+            ...createAdminTimeKeyboard(),
             parse_mode: 'HTML'
           }
         );
@@ -260,20 +286,80 @@ function initAdminBot() {
           return;
         }
         
-        // Check if slot is still available
-        const existingBooking = await Booking.findOne({
-          date: { $gte: state.date, $lt: new Date(state.date.getTime() + 24 * 60 * 60 * 1000) },
-          hourStart,
-          status: 'booked'
-        });
+        // For weekly booking, check if there's already a daily booking for this time
+        const adminUserId = -Math.abs(parseInt(adminChatId));
         
-        if (existingBooking) {
-          await ctx.answerCbQuery('Bu vaqt allaqachon band qilingan!');
-          return;
+        if (state.mode === 'weekly') {
+          // Check if there's already a daily booking for this time slot
+          const existingDailyBooking = await Booking.findOne({
+            userId: adminUserId,
+            hourStart,
+            hourEnd,
+            isWeekly: { $ne: true },
+            status: 'booked'
+          });
+          
+          if (existingDailyBooking) {
+            await ctx.answerCbQuery('Ushbu vaqt uchun allaqachon bir kunlik bron mavjud! Bir kunlik bron bekor qilingandan so\'ng haftalik bron qilishingiz mumkin.');
+            return;
+          }
+        }
+        
+        // For weekly booking, find the next occurrence of the selected weekday
+        let bookingDate;
+        if (state.mode === 'weekly') {
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          
+          // Find next occurrence of the selected weekday
+          bookingDate = new Date(today);
+          while (bookingDate.getDay() !== state.weekDay) {
+            bookingDate.setDate(bookingDate.getDate() + 1);
+          }
+          
+          // Check if slot is available for this specific date
+          const existingBooking = await Booking.findOne({
+            date: { $gte: bookingDate, $lt: new Date(bookingDate.getTime() + 24 * 60 * 60 * 1000) },
+            hourStart,
+            status: 'booked'
+          });
+          
+          if (existingBooking) {
+            await ctx.answerCbQuery('Bu vaqt allaqachon band qilingan!');
+            return;
+          }
+        } else {
+          // For daily booking, use the stored date
+          bookingDate = state.date;
+          
+          // Check if slot is available for this specific date
+          const existingBooking = await Booking.findOne({
+            date: { $gte: bookingDate, $lt: new Date(bookingDate.getTime() + 24 * 60 * 60 * 1000) },
+            hourStart,
+            status: 'booked'
+          });
+          
+          if (existingBooking) {
+            await ctx.answerCbQuery('Bu vaqt allaqachon band qilingan!');
+            return;
+          }
+          
+          // Check if there's already a weekly booking for this time slot
+          const existingWeeklyBooking = await Booking.findOne({
+            userId: adminUserId,
+            hourStart,
+            hourEnd,
+            isWeekly: true,
+            status: 'booked'
+          });
+          
+          if (existingWeeklyBooking) {
+            await ctx.answerCbQuery('Ushbu vaqt uchun allaqachon haftalik bron mavjud! Haftalik bron bekor qilingandan so\'ng bir kunlik bron qilishingiz mumkin.');
+            return;
+          }
         }
         
         // Create booking with special userId (negative for admin bookings)
-        const adminUserId = -Math.abs(parseInt(adminChatId));
         let booking;
 
         if (state.mode === 'weekly') {
@@ -298,7 +384,7 @@ function initAdminBot() {
           // First booking in weekly series
           booking = await Booking.create({
             userId: adminUserId,
-            date: state.date,
+            date: bookingDate,
             hourStart,
             hourEnd,
             status: 'booked',
@@ -307,11 +393,11 @@ function initAdminBot() {
           });
 
           // Create future weekly bookings
-          await createWeeklyBookingsForAdmin(adminUserId, state.date, hourStart, hourEnd, weeklyGroupId);
+          await createWeeklyBookingsForAdmin(adminUserId, bookingDate, hourStart, hourEnd, weeklyGroupId);
         } else {
           booking = await Booking.create({
             userId: adminUserId,
-            date: state.date,
+            date: bookingDate,
             hourStart,
             hourEnd,
             status: 'booked'
@@ -335,12 +421,12 @@ function initAdminBot() {
         const user = await User.findOne({ userId: adminUserId });
         
         // Notify channel
-        await notifyChannelBooking(state.date, hourStart, hourEnd, adminUserId, user.username || '');
+        await notifyChannelBooking(bookingDate, hourStart, hourEnd, adminUserId, user.username || '');
         
         // Notify monitoring bot
         const adminName = adminInfo.first_name || adminInfo.username || 'Admin';
         const bookingInfo = {
-          date: formatDate(state.date),
+          date: formatDate(bookingDate),
           time: `${String(hourStart).padStart(2, '0')}:00–${String(hourEnd === 0 ? '00' : hourEnd).padStart(2, '0')}:00`,
           phone: 'Admin'
         };
@@ -356,7 +442,7 @@ function initAdminBot() {
         const timeLabel = `${String(hourStart).padStart(2, '0')}:00–${String(hourEnd === 0 ? '00' : hourEnd).padStart(2, '0')}:00`;
         
         let successMessage = `✅ <b>Bron muvaffaqiyatli qilindi!</b>\n\n` +
-          `📅 Sana: ${formatDate(state.date)}\n` +
+          `📅 Sana: ${formatDate(bookingDate)}\n` +
           `⏰ Vaqt: ${timeLabel}\n` +
           `👤 Admin: ${adminName}`;
 

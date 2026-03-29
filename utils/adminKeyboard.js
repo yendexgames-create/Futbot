@@ -54,16 +54,42 @@ function createAdminDateKeyboard(prefix = 'admin_date_') {
 }
 
 /**
+ * Create week day selection keyboard for weekly booking
+ */
+function createWeekDayKeyboard() {
+  const weekDays = [
+    { name: 'Dushanba', day: 1 },
+    { name: 'Seshanba', day: 2 },
+    { name: 'Chorshanba', day: 3 },
+    { name: 'Payshanba', day: 4 },
+    { name: 'Juma', day: 5 },
+    { name: 'Shanba', day: 6 },
+    { name: 'Yakshanba', day: 0 }
+  ];
+  
+  const buttons = weekDays.map(day => [
+    Markup.button.callback(
+      `📅 ${day.name}`,
+      `admin_weekday_${day.day}`
+    )
+  ]);
+  
+  buttons.push([Markup.button.callback('🔙 Orqaga', 'admin_back')]);
+  
+  return Markup.inlineKeyboard(buttons);
+}
+
+/**
  * Create time slot keyboard for admin booking
  */
-function createAdminTimeKeyboard(date) {
+function createAdminTimeKeyboard() {
   const { getTimeSlots } = require('./time');
   const timeSlots = getTimeSlots();
   
   const buttons = timeSlots.map(slot => [
     Markup.button.callback(
       `🟢 ${slot.label}`,
-      `admin_time_${date}_${slot.start}_${slot.end}`
+      `admin_time_${slot.start}_${slot.end}`
     )
   ]);
   
@@ -217,6 +243,7 @@ module.exports = {
   createAdminReplyKeyboard,
   createAdminDateKeyboard,
   createAdminTimeKeyboard,
+  createWeekDayKeyboard,
   getDaySchedule,
   getWeekSchedule,
   getWeekScheduleExcludingPast
