@@ -1643,6 +1643,7 @@ function initAdminBot() {
           }
         );
         
+        // Clear state after successful booking
         adminStates.delete(adminChatId);
         return;
       }
