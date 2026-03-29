@@ -1485,7 +1485,7 @@ function initAdminBot() {
       
       if (state && state.type === 'admin_booking') {
         // Check if we need user info
-        if (!state.userInfo) {
+        if (!state.expectingUserInfo) {
           // Ask for user name and phone
           await ctx.reply(
             '📝 <b>Foydalanuvchi ma\'lumotlarini kiriting:</b>\n\n' +
