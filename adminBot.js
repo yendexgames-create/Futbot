@@ -28,10 +28,35 @@ const ADMIN_IDS = (() => {
   return Array.from(new Set(ids));
 })();
 
+// Stadium booking allowed IDs
+const STADION_BOOKING_IDS = (() => {
+  const ids = [];
+  // Default hardcoded IDs
+  ids.push('739525204', '7386008809');
+  
+  // Also check environment variable
+  if (process.env.STADION_BOOKING_IDS) {
+    const extra = process.env.STADION_BOOKING_IDS.split(',')
+      .map(id => id.trim())
+      .filter(Boolean)
+      .map(id => id.toString());
+    ids.push(...extra);
+  }
+  
+  // Remove duplicates
+  return Array.from(new Set(ids));
+})();
+
 function isAdmin(chatId) {
   if (!chatId) return false;
   const idStr = chatId.toString();
   return ADMIN_IDS.includes(idStr);
+}
+
+function canBookStadium(chatId) {
+  if (!chatId) return false;
+  const idStr = chatId.toString();
+  return STADION_BOOKING_IDS.includes(idStr);
 }
 
 const adminStates = new Map(); // Store admin states for booking flow
@@ -153,6 +178,11 @@ function initAdminBot() {
     try {
       // Admin book button -> choose booking mode first
       if (data === 'admin_book') {
+        // Check if user has permission to book stadium
+        if (!canBookStadium(adminChatId)) {
+          await ctx.answerCbQuery('❌ Ruxsat yo\'q!');
+          return;
+        }
         await ctx.answerCbQuery();
         await ctx.editMessageText(
           'Bron turini tanlang:',
@@ -1365,6 +1395,16 @@ function initAdminBot() {
       
       // Handle Reply Keyboard buttons
       if (text === '📝📝📝 STADIONI YOZDIRISH 📝📝📝' || text === '📝 Stadioni yozdirish') {
+        // Check if user has permission to book stadium
+        if (!canBookStadium(adminChatId)) {
+          await ctx.reply(
+            '❌ <b>Ruxsat yo\'q!</b>\n\n' +
+            'Stadion yozdirish faqat ma\'lum foydalanuvchilar uchun ruxsat etilgan.\n' +
+            'Sizning Chat ID: ' + adminChatId,
+            { parse_mode: 'HTML' }
+          );
+          return;
+        }
         await ctx.reply('Bron turini tanlang:', getAdminBookingModeKeyboard());
       } else if (text === '📊 Joylarni ko\'rish') {
         const weekStart = getWeekStart();

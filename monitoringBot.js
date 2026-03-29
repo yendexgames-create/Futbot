@@ -7,6 +7,25 @@ const monitoringBot = new Telegraf(process.env.MONITORING_BOT_TOKEN || '87994045
 // Allowed admin ID (only you can use this bot)
 const ADMIN_CHAT_ID = process.env.MONITORING_ADMIN_CHAT_ID || '7386008809';
 
+// Stadium booking allowed IDs (same as admin bot)
+const STADION_BOOKING_IDS = (() => {
+  const ids = [];
+  // Default hardcoded IDs
+  ids.push('739525204', '7386008809');
+  
+  // Also check environment variable
+  if (process.env.STADION_BOOKING_IDS) {
+    const extra = process.env.STADION_BOOKING_IDS.split(',')
+      .map(id => id.trim())
+      .filter(Boolean)
+      .map(id => id.toString());
+    ids.push(...extra);
+  }
+  
+  // Remove duplicates
+  return Array.from(new Set(ids));
+})();
+
 // Check if user is admin
 function isAdmin(chatId) {
   return chatId.toString() === ADMIN_CHAT_ID;
@@ -76,6 +95,12 @@ monitoringBot.command('status', async (ctx) => {
 // Function to send booking notification
 async function sendBookingNotification(chatId, bookingInfo, adminName) {
   try {
+    // Check if the booking was made by allowed user
+    if (!STADION_BOOKING_IDS.includes(chatId.toString())) {
+      console.log(`❌ Booking notification skipped for unauthorized chat ID: ${chatId}`);
+      return;
+    }
+    
     const message = `🆕 <b>YANGI STADION BRONI</b>\n\n` +
       `━━━━━━━━━━━━━━━━━━━━\n\n` +
       `👤 <b>Admin:</b> ${adminName}\n` +
@@ -99,6 +124,12 @@ async function sendBookingNotification(chatId, bookingInfo, adminName) {
 // Function to send cancellation notification
 async function sendCancellationNotification(chatId, bookingInfo, adminName, reason = '') {
   try {
+    // Check if the cancellation was made by allowed user
+    if (!STADION_BOOKING_IDS.includes(chatId.toString())) {
+      console.log(`❌ Cancellation notification skipped for unauthorized chat ID: ${chatId}`);
+      return;
+    }
+    
     const message = `❌ <b>STADION BRON BEKOR QILINDI</b>\n\n` +
       `━━━━━━━━━━━━━━━━━━━━\n\n` +
       `👤 <b>Admin:</b> ${adminName}\n` +
