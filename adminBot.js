@@ -491,7 +491,7 @@ function initAdminBot() {
       }
 
       // Admin choose user to block
-      if (data === 'admin_block_action') {
+      else if (data === 'admin_block_action') {
         await ctx.answerCbQuery('Foydalanuvchilar yuklanmoqda...');
 
         const users = await User.find({
