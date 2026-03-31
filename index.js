@@ -287,22 +287,43 @@ bot.on('callback_query', async (ctx) => {
         console.log(`Requesting phone from user ${userId}`);
         await ctx.answerCbQuery();
         
-        // Send text message with phone request
-        await ctx.reply(
-          '📞 <b>Bronni yakunlash uchun telefon raqamingizni ulashing:</b>\n\n' +
-          'Telefon raqamni ulashish majburiy!\n\n' +
-          '📱 Yuqoridagi joyga bosing va keyin "Telefon raqamni ulashish" tugmasini bosing',
-          {
-            reply_markup: {
-              keyboard: [
-                [{ text: '📱 Telefon raqamni ulashish', request_contact: true }]
-              ],
-              resize_keyboard: true,
-              one_time_keyboard: true
-            },
-            parse_mode: 'HTML'
-          }
-        );
+        try {
+          // Send image with phone request
+          await ctx.replyWithPhoto(
+            { source: './image.png' },
+            '📞 <b>Bronni yakunlash uchun telefon raqamingizni ulashing:</b>\n\n' +
+            'Telefon raqamni ulashish majburiy!\n\n' +
+            '📱 Yuqoridagi joyga bosing va keyin "Telefon raqamni ulashish" tugmasini bosing',
+            {
+              reply_markup: {
+                keyboard: [
+                  [{ text: '📱 Telefon raqamni ulashish', request_contact: true }]
+                ],
+                resize_keyboard: true,
+                one_time_keyboard: true
+              },
+              parse_mode: 'HTML'
+            }
+          );
+        } catch (photoError) {
+          console.error('Error sending photo:', photoError);
+          // If photo fails, send text message instead
+          await ctx.reply(
+            '📞 <b>Bronni yakunlash uchun telefon raqamingizni ulashing:</b>\n\n' +
+            'Telefon raqamni ulashish majburiy!\n\n' +
+            '📱 Yuqoridagi joyga bosing va keyin "Telefon raqamni ulashish" tugmasini bosing',
+            {
+              reply_markup: {
+                keyboard: [
+                  [{ text: '📱 Telefon raqamni ulashish', request_contact: true }]
+                ],
+                resize_keyboard: true,
+                one_time_keyboard: true
+              },
+              parse_mode: 'HTML'
+            }
+          );
+        }
         
         // Store pending booking
         userStates.set(userId, {
