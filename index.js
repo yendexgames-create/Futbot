@@ -271,6 +271,8 @@ bot.on('callback_query', async (ctx) => {
       
       // Get user info
       let user = await User.findOne({ userId });
+      console.log(`User ${userId} phone check:`, user ? (user.phone || 'NO PHONE') : 'USER NOT FOUND');
+      
       if (!user) {
         user = await User.create({
           userId,
@@ -282,11 +284,11 @@ bot.on('callback_query', async (ctx) => {
       
       // Request phone number if not available (majburiy)
       if (!user.phone) {
+        console.log(`Requesting phone from user ${userId}`);
         await ctx.answerCbQuery();
         
-        // Send image with phone request
-        await ctx.replyWithPhoto(
-          { source: 'C:/Users/Acer/Desktop/fut bto (2)/fut bto/image.png' },
+        // Send text message with phone request (no image)
+        await ctx.reply(
           '📞 <b>Bronni yakunlash uchun telefon raqamingizni ulashing:</b>\n\n' +
           'Telefon raqamni ulashish majburiy!\n\n' +
           '📱 Pastdagi "Telefon raqamni ulashish" tugmasini bosing yoki\n' +
