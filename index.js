@@ -1028,6 +1028,13 @@ bot.on('contact', async (ctx) => {
       const keyboard = await createMainKeyboard(currentWeekStart);
       
       await ctx.reply(successMessage, keyboard);
+      
+      // Reset reply keyboard to main menu
+      await ctx.reply('📋 <b>Asosiy menu:</b>', {
+        ...createUserReplyKeyboard(),
+        parse_mode: 'HTML'
+      });
+      
       userStates.delete(userId);
     }
   } catch (error) {
