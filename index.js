@@ -289,11 +289,9 @@ bot.on('callback_query', async (ctx) => {
           '📌 <b>Eslatma:</b> Telefon raqamni ulashish uchun quyidagi tugmani bosing.',
           {
             reply_markup: {
-              keyboard: [[
+              inline_keyboard: [[
                 { text: '📱 Telefon raqamni ulashish', request_contact: true }
-              ]],
-              resize_keyboard: true,
-              one_time_keyboard: true
+              ]]
             },
             parse_mode: 'HTML'
           }
