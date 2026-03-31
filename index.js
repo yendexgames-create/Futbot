@@ -291,7 +291,7 @@ bot.on('callback_query', async (ctx) => {
         await ctx.reply(
           '📞 <b>Bronni yakunlash uchun telefon raqamingizni ulashing:</b>\n\n' +
           'Telefon raqamni ulashish majburiy!\n\n' +
-          '📱 Pastdagi "Telefon raqamni ulashish" tugmasini bosing',
+          '📱 Yuqoridagi joyga bosing va keyin "Telefon raqamni ulashish" tugmasini bosing',
           {
             reply_markup: {
               keyboard: [
