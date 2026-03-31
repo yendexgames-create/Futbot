@@ -448,7 +448,8 @@ function initAdminBot() {
         await ctx.answerCbQuery();
         await ctx.editMessageText(
           `📝 <b>Faqat telefon raqamni kiriting:</b>\n\n` +
-          `Masalan: +998901234567`,
+          `Masalan: +998901234567\n\n` +
+          `📌 <b>Eslatma:</b> Telefon raqamni kiriting va yuborish tugmasini bosing.`,
           {
             reply_markup: {
               inline_keyboard: [[
