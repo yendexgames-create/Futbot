@@ -287,17 +287,15 @@ bot.on('callback_query', async (ctx) => {
         console.log(`Requesting phone from user ${userId}`);
         await ctx.answerCbQuery();
         
-        // Send text message with phone request (no image)
+        // Send text message with phone request
         await ctx.reply(
           '📞 <b>Bronni yakunlash uchun telefon raqamingizni ulashing:</b>\n\n' +
           'Telefon raqamni ulashish majburiy!\n\n' +
-          '📱 Pastdagi "Telefon raqamni ulashish" tugmasini bosing yoki\n' +
-          '📝 Quyidagi formatda raqamingizni yuboring: +998901234567',
+          '📱 Pastdagi "Telefon raqamni ulashish" tugmasini bosing',
           {
             reply_markup: {
               keyboard: [
-                [{ text: '📱 Telefon raqamni ulashish', request_contact: true }],
-                [{ text: '📝 Raqamni qo\'lda yuborish' }]
+                [{ text: '📱 Telefon raqamni ulashish', request_contact: true }]
               ],
               resize_keyboard: true,
               one_time_keyboard: true
@@ -1030,110 +1028,6 @@ bot.on('text', async (ctx) => {
     const userId = ctx.from.id;
     const text = ctx.message.text;
     const state = userStates.get(userId);
-    
-    // Handle phone number input for booking
-    if (state && state.type === 'booking') {
-      // Check if text looks like a phone number
-      const phoneMatch = text.match(/^(\+?\d{9,13})$/);
-      if (phoneMatch) {
-        const phone = phoneMatch[1];
-        
-        // Update user phone
-        await User.findOneAndUpdate(
-          { userId },
-          { phone },
-          { upsert: true, new: true }
-        );
-        
-        // Create booking
-        const { date, hourStart, hourEnd, mode } = state;
-        let booking;
-        
-        if (mode === 'weekly') {
-          // Check active weekly groups limit (max 8)
-          const today = new Date();
-          today.setHours(0, 0, 0, 0);
-          const activeWeeklyGroups = await Booking.distinct('weeklyGroupId', {
-            userId,
-            isWeekly: true,
-            weeklyGroupId: { $ne: null },
-            status: 'booked',
-            date: { $gte: today }
-          });
-          const activeWeeklyCount = activeWeeklyGroups.filter(g => g !== null).length;
-          if (activeWeeklyCount >= 8) {
-            await ctx.reply('❌ Sizda allaqachon 8 ta haftalik bron mavjud.');
-            const currentWeekStart = getWeekStart();
-            const keyboard = await createMainKeyboard(currentWeekStart);
-            await ctx.reply(
-              '❌ Siz maksimal 8 ta haftalik bron qilishingiz mumkin. Yangi haftalik bron qilishdan oldin mavjud haftalik bronlardan birini bekor qiling.',
-              keyboard
-            );
-            userStates.delete(userId);
-            return;
-          }
-
-          const weeklyGroupId = `${userId}_${Date.now()}_${hourStart}`;
-          // Create first booking as part of weekly series
-          booking = await Booking.create({
-            userId,
-            date,
-            hourStart,
-            hourEnd,
-            status: 'booked',
-            isWeekly: true,
-            weeklyGroupId
-          });
-
-          // Create future weekly bookings (no additional notifications)
-          await createWeeklyBookings(userId, date, hourStart, hourEnd, weeklyGroupId);
-        } else {
-          // Create single (daily) booking
-          booking = await Booking.create({
-            userId,
-            date,
-            hourStart,
-            hourEnd,
-            status: 'booked'
-          });
-        }
-        
-        await ctx.reply('✅ Bron tasdiqlandi!');
-        
-        // Notify admin
-        const user = await User.findOne({ userId });
-        await notifyNewBooking(booking, user);
-        
-        // Notify channel (phone will be fetched in notifyChannelBooking function)
-        await notifyChannelBooking(date, hourStart, hourEnd, userId, user.username || '');
-        
-        // Send daily schedule to admin and channel
-        const { generateDailySchedule } = require('./utils/schedule');
-        const { postDailyScheduleToAdmin } = require('./adminBot');
-        const { postDailyScheduleToChannel } = require('./cron/schedule');
-        const scheduleText = await generateDailySchedule(date);
-        await postDailyScheduleToAdmin(scheduleText, date);
-        await postDailyScheduleToChannel(scheduleText, date);
-        
-        // Show success message and return to main menu
-        const timeLabel = `${String(hourStart).padStart(2, '0')}:00–${String(hourEnd).padStart(2, '0')}:00`;
-        let successMessage = `✅ Bron tasdiqlandi!\n\n` +
-          `📅 Sana: ${formatDate(date)}\n` +
-          `⏰ Vaqt: ${timeLabel}\n` +
-          `💰 Narx: 200,000 so'm`;
-
-        if (booking.isWeekly) {
-          successMessage += `\n\n📆 Bu haftalik bron. Har hafta shu kuni shu vaqtda maydon siz uchun band bo'ladi (maksimal 8 ta haftalik bron).`;
-        }
-        
-        const currentWeekStart = getWeekStart();
-        const keyboard = await createMainKeyboard(currentWeekStart);
-        
-        await ctx.reply(successMessage, keyboard);
-        userStates.delete(userId);
-        return;
-      }
-    }
     
     // Handle Reply Keyboard buttons first
     if (text === '📅 Hafta jadvali') {
