@@ -291,10 +291,10 @@ bot.on('callback_query', async (ctx) => {
           // Send image with phone request
           await ctx.replyWithPhoto(
             { source: './image.png' },
-            '📞 <b>Bronni yakunlash uchun telefon raqamingizni ulashing:</b>\n\n' +
-            'Telefon raqamni ulashish majburiy!\n\n' +
-            '📱 Yuqoridagi joyga bosing va keyin "Telefon raqamni ulashish" tugmasini bosing',
             {
+              caption: '📞 <b>Bronni yakunlash uchun telefon raqamingizni ulashing:</b>\n\n' +
+              'Telefon raqamni ulashish majburiy!\n\n' +
+              '📱 Yuqoridagi joyga bosing va keyin "Telefon raqamni ulashish" tugmasini bosing',
               reply_markup: {
                 keyboard: [
                   [{ text: '📱 Telefon raqamni ulashish', request_contact: true }]
