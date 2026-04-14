@@ -357,13 +357,21 @@ function initAdminBot() {
         
         adminBookingModes.set(adminChatId, 'weekly');
         await ctx.answerCbQuery('Haftalik yozdirish rejimi tanlandi.');
-        await ctx.editMessageText(
-          '📅 <b>Stadioni haftalik yozdirish uchun sanani tanlang:</b>',
-          {
-            ...createAdminDateKeyboard(),
-            parse_mode: 'HTML'
-          }
-        );
+        
+        try {
+          const keyboard = createAdminDateKeyboard();
+          console.log('Admin weekly keyboard created:', keyboard);
+          await ctx.editMessageText(
+            '📅 <b>Stadioni haftalik yozdirish uchun sanani tanlang:</b>',
+            {
+              ...keyboard,
+              parse_mode: 'HTML'
+            }
+          );
+        } catch (error) {
+          console.error('Error creating admin date keyboard:', error);
+          await ctx.reply('Xatolik yuz berdi. Iltimos, qayta urinib ko\'ring.');
+        }
       }
       
       // Admin week navigation for booking
