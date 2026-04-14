@@ -366,6 +366,32 @@ function initAdminBot() {
         );
       }
       
+      // Admin week navigation for booking
+      else if (data.startsWith('admin_week_')) {
+        // Check if user has permission (only 7386008809)
+        if (adminChatId.toString() !== '7386008809') {
+          await ctx.answerCbQuery('Sizda stadion yozdirish uchun ruxsat yo\'q.');
+          return;
+        }
+        
+        const dateStr = data.replace('admin_week_', '');
+        const [year, month, day] = dateStr.split('-').map(Number);
+        const weekStart = new Date(year, month - 1, day);
+        
+        await ctx.answerCbQuery();
+        
+        const mode = getAdminBookingMode(adminChatId);
+        const modeText = mode === 'weekly' ? 'haftalik' : 'bir kunlik';
+        
+        await ctx.editMessageText(
+          `Stadioni ${modeText} yozdirish uchun sanani tanlang:`,
+          {
+            ...createAdminDateKeyboard('admin_date_', weekStart),
+            parse_mode: 'HTML'
+          }
+        );
+      }
+      
       // Admin date selection
       else if (data.startsWith('admin_date_')) {
         // Check if user has permission (only 7386008809)

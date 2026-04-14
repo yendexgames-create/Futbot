@@ -30,15 +30,30 @@ function createAdminReplyKeyboard() {
 /**
  * Create date selection keyboard for admin booking
  * @param {string} prefix - Callback prefix (default: 'admin_date_', can be 'admin_penalty_date_')
+ * @param {Date} weekStart - Start of the week to display
  */
-function createAdminDateKeyboard(prefix = 'admin_date_') {
-  const weekDays = getWeekDays();
+function createAdminDateKeyboard(prefix = 'admin_date_', weekStart = null) {
   const buttons = [];
   
-  // Create day buttons for next 14 days
-  for (let i = 0; i < 14; i++) {
-    const day = new Date();
-    day.setDate(day.getDate() + i);
+  // If no weekStart provided, use current week
+  if (!weekStart) {
+    weekStart = getWeekStart();
+  }
+  
+  // Create navigation buttons
+  const prevWeekStart = new Date(weekStart);
+  prevWeekStart.setDate(prevWeekStart.getDate() - 7);
+  const nextWeekStart = new Date(weekStart);
+  nextWeekStart.setDate(nextWeekStart.getDate() + 7);
+  
+  buttons.push([
+    Markup.button.callback('« Oldingi hafta', `admin_week_${prevWeekStart.toISOString().split('T')[0]}`),
+    Markup.button.callback('Keyingi hafta »', `admin_week_${nextWeekStart.toISOString().split('T')[0]}`)
+  ]);
+  
+  // Create day buttons for the week
+  const weekDays = getWeekDays(weekStart);
+  for (const day of weekDays) {
     const dateKey = day.toISOString().split('T')[0];
     const dayName = formatDateShort(day);
     
@@ -48,7 +63,8 @@ function createAdminDateKeyboard(prefix = 'admin_date_') {
     )]);
   }
   
-  buttons.push([Markup.button.callback('🔙 Orqaga', prefix === 'admin_penalty_date_' ? 'admin_penalty' : 'admin_back')]);
+  buttons.push([Markup.button.callback('Bugun', `admin_date_${new Date().toISOString().split('T')[0]}`)]);
+  buttons.push([Markup.button.callback('Orqaga', prefix === 'admin_penalty_date_' ? 'admin_penalty' : 'admin_back')]);
   
   return Markup.inlineKeyboard(buttons);
 }
