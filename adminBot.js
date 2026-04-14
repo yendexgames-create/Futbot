@@ -360,16 +360,14 @@ function initAdminBot() {
         
         try {
           const keyboard = createAdminDateKeyboard();
-          console.log('Admin weekly keyboard created:', keyboard);
           await ctx.editMessageText(
-            '📅 <b>Stadioni haftalik yozdirish uchun sanani tanlang:</b>',
+            'Stadioni haftalik yozdirish uchun sanani tanlang:',
             {
               ...keyboard,
               parse_mode: 'HTML'
             }
           );
         } catch (error) {
-          console.error('Error creating admin date keyboard:', error);
           await ctx.reply('Xatolik yuz berdi. Iltimos, qayta urinib ko\'ring.');
         }
       }
