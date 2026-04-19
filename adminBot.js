@@ -1352,6 +1352,17 @@ function initAdminBot() {
         
         // Create booking with special userId (negative for admin bookings)
         const adminUserId = -Math.abs(parseInt(adminChatId));
+        
+        // Create or update user with phone only (no name)
+        const rawInput = text.trim();
+        const phoneMatch = rawInput.match(/\+?\d{9,13}/);
+        const phone = phoneMatch ? phoneMatch[0] : rawInput;
+        const name = '';
+        
+        // Create unique userId for each phone number to avoid mixing
+        const phoneUserId = Math.abs(parseInt(phone.replace(/\D/g, '').slice(-9))) || Math.abs(adminUserId) + Math.floor(Math.random() * 1000000);
+        
+        // Create booking with correct userId
         let booking;
 
         if (mode === 'weekly') {
@@ -1367,7 +1378,7 @@ function initAdminBot() {
           });
           const activeWeeklyCount = activeWeeklyGroups.filter(g => g !== null).length;
           if (activeWeeklyCount >= 8) {
-            await ctx.reply('❌ Siz maksimal 8 ta haftalik bron qilishingiz mumkin. Yangi haftalik bron qilishdan oldin mavjud haftalik bronlardan birini bekor qiling.');
+            await ctx.reply('Siz maksimal 8 ta haftalik bron qilishingiz mumkin. Yangi haftalik bron qilishdan oldin mavjud haftalik bronlardan birini bekor qiling.');
             adminStates.delete(adminChatId);
             return;
           }
@@ -1396,15 +1407,6 @@ function initAdminBot() {
           });
         }
         
-        // Create or update user with phone only (no name)
-        const rawInput = text.trim();
-        const phoneMatch = rawInput.match(/\+?\d{9,13}/);
-        const phone = phoneMatch ? phoneMatch[0] : rawInput;
-        const name = '';
-        
-        // Create unique userId for each phone number to avoid mixing
-        const phoneUserId = Math.abs(parseInt(phone.replace(/\D/g, '').slice(-9))) || Math.abs(adminUserId) + Math.floor(Math.random() * 1000000);
-        
         await User.findOneAndUpdate(
           { phone: phone }, // Use phone as unique identifier
           {
@@ -1415,12 +1417,6 @@ function initAdminBot() {
             lastName: null
           },
           { upsert: true, new: true }
-        );
-        
-        // Update booking with correct userId
-        await Booking.findByIdAndUpdate(
-          booking._id,
-          { userId: phoneUserId }
         );
         
         const user = await User.findOne({ phone: phone });
