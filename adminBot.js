@@ -439,12 +439,51 @@ function initAdminBot() {
         const [year, month, day] = dateStr.split('-').map(Number);
         const selectedDate = new Date(year, month - 1, day);
         
+        // Get booking mode for admin
+        const bookingMode = getAdminBookingMode(adminChatId);
+        
+        // Check for conflicting bookings based on booking mode
+        if (bookingMode === 'weekly') {
+          // For weekly booking, check if any daily booking exists for this specific day/time
+          const conflictingDailyBooking = await Booking.findOne({
+            date: selectedDate,
+            hourStart,
+            hourEnd,
+            status: 'booked',
+            isWeekly: { $ne: true } // Only check daily bookings
+          });
+          
+          if (conflictingDailyBooking) {
+            await ctx.answerCbQuery(`Bu kun va vaqt uchun allaqachon kunlik bron mavjud!\n\nSana: ${formatDate(conflictingDailyBooking.date)}\nVaqt: ${String(hourStart).padStart(2, '0')}:00-${String(hourEnd).padStart(2, '0')}:00\n\nKunlik bron borligi uchun haftalik bron qila olmaysiz.`);
+            return;
+          }
+        } else {
+          // For daily booking, check if any weekly booking exists for this specific day/time
+          const conflictingWeeklyBooking = await Booking.findOne({
+            date: selectedDate,
+            hourStart,
+            hourEnd,
+            status: 'booked',
+            isWeekly: true // Only check weekly bookings
+          });
+          
+          if (conflictingWeeklyBooking) {
+            await ctx.answerCbQuery(`Bu kun va vaqt uchun allaqachon haftalik bron mavjud!\n\nSana: ${formatDate(conflictingWeeklyBooking.date)}\nVaqt: ${String(hourStart).padStart(2, '0')}:00-${String(hourEnd).padStart(2, '0')}:00\n\nHaftalik bron borligi uchun kunlik bron qila olmaysiz.`);
+            return;
+          }
+        }
+        
         // Check if slot is available
         const existingBooking = await Booking.findOne({
           date: { $gte: selectedDate, $lt: new Date(selectedDate.getTime() + 24 * 60 * 60 * 1000) },
           hourStart,
           status: 'booked'
         });
+        
+        if (existingBooking) {
+          await ctx.answerCbQuery('Bu vaqt allaqachon band qilingan.');
+          return;
+        }
         
         adminStates.set(adminChatId, {
           type: 'admin_booking',
