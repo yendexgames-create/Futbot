@@ -1359,7 +1359,7 @@ function initAdminBot() {
           const today = new Date();
           today.setHours(0, 0, 0, 0);
           const activeWeeklyGroups = await Booking.distinct('weeklyGroupId', {
-            userId: adminUserId,
+            userId: phoneUserId,
             isWeekly: true,
             weeklyGroupId: { $ne: null },
             status: 'booked',
@@ -1375,7 +1375,7 @@ function initAdminBot() {
           const weeklyGroupId = `${adminUserId}_${Date.now()}_${hourStart}`;
           // First booking in weekly series
           booking = await Booking.create({
-            userId: adminUserId,
+            userId: phoneUserId,
             date,
             hourStart,
             hourEnd,
@@ -1385,10 +1385,10 @@ function initAdminBot() {
           });
 
           // Create future weekly bookings without extra notifications
-          await createWeeklyBookingsForAdmin(adminUserId, date, hourStart, hourEnd, weeklyGroupId);
+          await createWeeklyBookingsForAdmin(phoneUserId, date, hourStart, hourEnd, weeklyGroupId);
         } else {
           booking = await Booking.create({
-            userId: adminUserId,
+            userId: phoneUserId,
             date,
             hourStart,
             hourEnd,
@@ -1402,10 +1402,13 @@ function initAdminBot() {
         const phone = phoneMatch ? phoneMatch[0] : rawInput;
         const name = '';
         
+        // Create unique userId for each phone number to avoid mixing
+        const phoneUserId = Math.abs(parseInt(phone.replace(/\D/g, '').slice(-9))) || Math.abs(adminUserId) + Math.floor(Math.random() * 1000000);
+        
         await User.findOneAndUpdate(
-          { userId: adminUserId },
+          { phone: phone }, // Use phone as unique identifier
           {
-            userId: adminUserId,
+            userId: phoneUserId,
             username: null,
             phone,
             firstName: name || null,
@@ -1414,10 +1417,16 @@ function initAdminBot() {
           { upsert: true, new: true }
         );
         
-        const user = await User.findOne({ userId: adminUserId });
+        // Update booking with correct userId
+        await Booking.findByIdAndUpdate(
+          booking._id,
+          { userId: phoneUserId }
+        );
+        
+        const user = await User.findOne({ phone: phone });
         
         // Notify channel (pass name as userName, phone will be fetched in notifyChannelBooking)
-        await notifyChannelBooking(date, hourStart, hourEnd, adminUserId, name || phone || '');
+        await notifyChannelBooking(date, hourStart, hourEnd, phoneUserId, name || phone || '');
         
         // Notify monitoring bot
         const adminInfo = ctx.from;

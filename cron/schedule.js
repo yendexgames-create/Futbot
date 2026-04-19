@@ -103,12 +103,6 @@ async function postDailySchedule(timeOfDay = 'ertalab') {
       status: 'booked'
     });
     
-    // Get user information for bookings
-    const userIds = bookings.map(b => b.userId);
-    const users = await User.find({ userId: { $in: userIds } });
-    const userMap = {};
-    users.forEach(u => userMap[u.userId] = u);
-    
     const bookedHours = new Set(bookings.map(b => b.hourStart));
     const timeSlots = getTimeSlots();
     
@@ -121,16 +115,7 @@ async function postDailySchedule(timeOfDay = 'ertalab') {
     
     for (const slot of timeSlots) {
       if (bookedHours.has(slot.start)) {
-        // Find booking for this time slot
-        const booking = bookings.find(b => b.hourStart === slot.start);
-        if (booking) {
-          const user = userMap[booking.userId];
-          const maskedPhone = user && user.phone ? maskPhoneNumber(user.phone) : 'Noma\'lum';
-          const bookingType = booking.isWeekly ? 'Haftalik' : 'Kunlik';
-          scheduleText += `❌ ${slot.label} - <b>Band</b>\n   📞 ${maskedPhone} (${bookingType})\n`;
-        } else {
-          scheduleText += `❌ ${slot.label} - <b>Band</b>\n`;
-        }
+        scheduleText += `❌ ${slot.label} - <b>Band</b>\n`;
       } else {
         scheduleText += `🟢 ${slot.label} - <b>Bo'sh</b>\n`;
       }
@@ -228,12 +213,6 @@ async function postChannelSchedule() {
       status: 'booked'
     });
     
-    // Get user information for bookings
-    const userIds = bookings.map(b => b.userId);
-    const users = await User.find({ userId: { $in: userIds } });
-    const userMap = {};
-    users.forEach(u => userMap[u.userId] = u);
-    
     const bookedHours = new Set(bookings.map(b => b.hourStart));
     const timeSlots = getTimeSlots();
     
@@ -243,16 +222,7 @@ async function postChannelSchedule() {
     
     for (const slot of timeSlots) {
       if (bookedHours.has(slot.start)) {
-        // Find booking for this time slot
-        const booking = bookings.find(b => b.hourStart === slot.start);
-        if (booking) {
-          const user = userMap[booking.userId];
-          const maskedPhone = user && user.phone ? maskPhoneNumber(user.phone) : 'Noma\'lum';
-          const bookingType = booking.isWeekly ? 'Haftalik' : 'Kunlik';
-          scheduleText += `❌ ${slot.label} - <b>Band</b>\n   📞 ${maskedPhone} (${bookingType})\n`;
-        } else {
-          scheduleText += `❌ ${slot.label} - <b>Band</b>\n`;
-        }
+        scheduleText += `❌ ${slot.label} - <b>Band</b>\n`;
       } else {
         scheduleText += `🟢 ${slot.label} - <b>Bo'sh</b>\n`;
       }

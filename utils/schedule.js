@@ -1,7 +1,5 @@
 const Booking = require('../models/Booking');
 const { formatDate, getTimeSlots } = require('./time');
-const User = require('../models/User');
-const { maskPhoneNumber } = require('./phone');
 
 /**
  * Generate daily schedule text for a specific date
@@ -32,32 +30,17 @@ async function generateDailySchedule(date) {
              bookingDate.getDate() === targetDay;
     });
     
-    // Get user information for bookings
-    const userIds = bookings.map(b => b.userId);
-    const users = await User.find({ userId: { $in: userIds } });
-    const userMap = {};
-    users.forEach(u => userMap[u.userId] = u);
-    
     const bookedHours = new Set(bookings.map(b => b.hourStart));
     const timeSlots = getTimeSlots();
     
-    let scheduleText = `? <b>${formatDate(date)}</b>\n\n`;
-    scheduleText += `???????????????????????\n\n`;
+    let scheduleText = `📅 <b>${formatDate(date)}</b>\n\n`;
+    scheduleText += `━━━━━━━━━━━━━━━━━━━━\n\n`;
     
     for (const slot of timeSlots) {
       if (bookedHours.has(slot.start)) {
-        // Find booking for this time slot
-        const booking = bookings.find(b => b.hourStart === slot.start);
-        if (booking) {
-          const user = userMap[booking.userId];
-          const maskedPhone = user && user.phone ? maskPhoneNumber(user.phone) : 'Noma\'lum';
-          const bookingType = booking.isWeekly ? 'Haftalik' : 'Kunlik';
-          scheduleText += `? ${slot.label} - <b>Band</b>\n   ?? ${maskedPhone} (${bookingType})\n`;
-        } else {
-          scheduleText += `? ${slot.label} - <b>Band</b>\n`;
-        }
+        scheduleText += `❌ ${slot.label} - <b>Band</b>\n`;
       } else {
-        scheduleText += `? ${slot.label} - <b>Bo'sh</b>\n`;
+        scheduleText += `🟢 ${slot.label} - <b>Bo'sh</b>\n`;
       }
     }
     
