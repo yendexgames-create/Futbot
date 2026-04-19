@@ -446,29 +446,6 @@ function initAdminBot() {
           status: 'booked'
         });
         
-        if (existingBooking) {
-          await ctx.answerCbQuery('Bu vaqt allaqachon band!');
-          return;
-        }
-        
-        // For weekly booking, check if any daily booking exists for this specific day/time
-        const bookingMode = getAdminBookingMode(adminChatId);
-        if (bookingMode === 'weekly') {
-          const conflictingDailyBooking = await Booking.findOne({
-            date: selectedDate, // Only check the specific selected date
-            hourStart,
-            hourEnd,
-            status: 'booked',
-            isWeekly: { $ne: true } // Only check daily bookings
-          });
-          
-          if (conflictingDailyBooking) {
-            await ctx.answerCbQuery(`❌ Bu kun va vaqt uchun allaqachon kunlik bron mavjud!\n\n📅 Sana: ${formatDate(conflictingDailyBooking.date)}\n⏰ Vaqt: ${String(hourStart).padStart(2, '0')}:00–${String(hourEnd).padStart(2, '0')}:00\n\nKunlik bron borligi uchun haftalik bron qila olmaysiz.`);
-            return;
-          }
-        }
-        
-        // Store booking info in state
         adminStates.set(adminChatId, {
           type: 'admin_booking',
           date: selectedDate,

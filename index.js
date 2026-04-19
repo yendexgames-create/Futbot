@@ -252,9 +252,11 @@ bot.on('callback_query', async (ctx) => {
         return;
       }
       
-      // For weekly booking, check if any daily booking exists for this specific day/time
+      // Check for conflicting bookings based on booking mode
       const bookingMode = getUserBookingMode(userId);
+      
       if (bookingMode === 'weekly') {
+        // For weekly booking, check if any daily booking exists for this specific day/time
         const conflictingDailyBooking = await Booking.findOne({
           date: selectedDate, // Only check the specific selected date
           hourStart,
@@ -264,7 +266,21 @@ bot.on('callback_query', async (ctx) => {
         });
         
         if (conflictingDailyBooking) {
-          await ctx.answerCbQuery(`❌ Bu kun va vaqt uchun allaqachon kunlik bron mavjud!\n\n📅 Sana: ${formatDate(conflictingDailyBooking.date)}\n⏰ Vaqt: ${String(hourStart).padStart(2, '0')}:00–${String(hourEnd).padStart(2, '0')}:00\n\nKunlik bron borligi uchun haftalik bron qila olmaysiz.`);
+          await ctx.answerCbQuery(`Bu kun va vaqt uchun allaqachon kunlik bron mavjud!\n\nSana: ${formatDate(conflictingDailyBooking.date)}\nVaqt: ${String(hourStart).padStart(2, '0')}:00-${String(hourEnd).padStart(2, '0')}:00\n\nKunlik bron borligi uchun haftalik bron qila olmaysiz.`);
+          return;
+        }
+      } else {
+        // For daily booking, check if any weekly booking exists for this specific day/time
+        const conflictingWeeklyBooking = await Booking.findOne({
+          date: selectedDate,
+          hourStart,
+          hourEnd,
+          status: 'booked',
+          isWeekly: true // Only check weekly bookings
+        });
+        
+        if (conflictingWeeklyBooking) {
+          await ctx.answerCbQuery(`Bu kun va vaqt uchun allaqachon haftalik bron mavjud!\n\nSana: ${formatDate(conflictingWeeklyBooking.date)}\nVaqt: ${String(hourStart).padStart(2, '0')}:00-${String(hourEnd).padStart(2, '0')}:00\n\nHaftalik bron borligi uchun kunlik bron qila olmaysiz.`);
           return;
         }
       }
